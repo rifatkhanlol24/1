@@ -66,6 +66,26 @@ export const AdminPanel: React.FC = () => {
   } = useApp();
 
   const [isAdminVerified, setIsAdminVerified] = useState<boolean | null>(null);
+  const [activeSubTab, setActiveSubTab] = useState<
+    'firebase' | 'users' | 'verification' | 'automation' | 'moderation' | 'broadcast'
+  >('firebase');
+  const [userFilter, setUserFilter] = useState('');
+  const [broadcastTitle, setBroadcastTitle] = useState('');
+  const [broadcastMsg, setBroadcastMsg] = useState('');
+  const [botSearchInput, setBotSearchInput] = useState(users[0]?.username || '');
+  const [botFollowersCount, setBotFollowersCount] = useState<number>(1000);
+  const [autoLikeSearchInput, setAutoLikeSearchInput] = useState(posts[0]?.id || '');
+  const [autoLikeCount, setAutoLikeCount] = useState<number>(500);
+  const [autoCommentSearchInput, setAutoCommentSearchInput] = useState(posts[0]?.id || '');
+  const [autoCommentCount, setAutoCommentCount] = useState<number>(10);
+  const [autoCommentCustomText, setAutoCommentCustomText] = useState('');
+  const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [editUserFullName, setEditUserFullName] = useState('');
+  const [editUserUsername, setEditUserUsername] = useState('');
+  const [editUserBio, setEditUserBio] = useState('');
+  const [editUserChangeCount, setEditUserChangeCount] = useState<number>(0);
+  const [editUserIsVip, setEditUserIsVip] = useState(false);
+  const [editUserIsVerified, setEditUserIsVerified] = useState(false);
 
   useEffect(() => {
     const auth = getAuth(app);
@@ -141,26 +161,6 @@ export const AdminPanel: React.FC = () => {
       </div>
     );
   }
-
-  const [activeSubTab, setActiveSubTab] = useState<
-    'firebase' | 'users' | 'verification' | 'automation' | 'moderation' | 'broadcast'
-  >('firebase');
-  const [userFilter, setUserFilter] = useState('');
-  const [broadcastTitle, setBroadcastTitle] = useState('');
-  const [broadcastMsg, setBroadcastMsg] = useState('');
-
-  // Bot follower state (supports custom profile link, @username, or search)
-  const [botSearchInput, setBotSearchInput] = useState(users[0]?.username || '');
-  const [botFollowersCount, setBotFollowersCount] = useState<number>(1000);
-
-  // Auto like state (supports custom post link or post ID)
-  const [autoLikeSearchInput, setAutoLikeSearchInput] = useState(posts[0]?.id || '');
-  const [autoLikeCount, setAutoLikeCount] = useState<number>(500);
-
-  // Auto comment state (supports custom post link or post ID)
-  const [autoCommentSearchInput, setAutoCommentSearchInput] = useState(posts[0]?.id || '');
-  const [autoCommentCount, setAutoCommentCount] = useState<number>(10);
-  const [autoCommentCustomText, setAutoCommentCustomText] = useState('');
 
   // Resolvers for Profile Link / Username Search (supports ShohelTaj, @shoheltaj, soheltajbhola, etc.)
   const resolveTargetUser = (input: string): User | null => {
@@ -252,14 +252,7 @@ export const AdminPanel: React.FC = () => {
   const previewedLikePost = resolveTargetPost(autoLikeSearchInput);
   const previewedCommentPost = resolveTargetPost(autoCommentSearchInput);
 
-  // Admin User Edit Override Modal state
-  const [editingUser, setEditingUser] = useState<User | null>(null);
-  const [editUserFullName, setEditUserFullName] = useState('');
-  const [editUserUsername, setEditUserUsername] = useState('');
-  const [editUserBio, setEditUserBio] = useState('');
-  const [editUserChangeCount, setEditUserChangeCount] = useState<number>(0);
-  const [editUserIsVip, setEditUserIsVip] = useState(false);
-  const [editUserIsVerified, setEditUserIsVerified] = useState(false);
+
 
 
 
