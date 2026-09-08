@@ -331,8 +331,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     });
   }, []);
 
+  // Hook: Process Google Sign-In redirect result on app initialization
   useEffect(() => {
-    // Process redirect sign in result on app startup (for mobile or redirect login)
     getRedirectResult(auth)
       .then(async (cred) => {
         if (cred?.user) {
@@ -379,31 +379,40 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           showToast(errorMsg);
         }
       });
+  }, []);
 
+  // Hook: Auth Sync Hook
+  // Ensures that upon any successful authentication (including Google Auth),
+  // the user profile is either fetched from users/{uid} or initialized in database if missing,
+  // guaranteeing currentUser state object is always synchronized with the database record.
+  useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      // Authoritative Single Admin check: UID must strictly match UI28ofvzB7cjNJvCG0DvYgbCu9J3
       if (user) {
-        const isAdmin = user.uid === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3';
+        const uid = user.uid;
+        const isAdmin = uid === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3';
         setIsFirebaseAdmin(isAdmin);
 
+        // Synchronize user profile with users/{uid} in database
         const profile = await loadUserProfileFromFirebase(
-          user.uid,
+          uid,
           user.email || undefined,
           user.displayName || undefined,
           user.photoURL || undefined
         );
 
         setUsers((prev) => {
-          const filtered = prev.filter((u) => u.id !== user.uid && u.id !== 'user-admin');
+          const filtered = prev.filter((u) => u.id !== uid && u.id !== 'user-admin');
           return [profile, ...filtered];
         });
 
-        setCurrentUserId(user.uid);
-        recordLoggedInUser(user.uid);
+        setCurrentUserId(uid);
+        safeLocalStorageSet('vc_current_user_id', uid);
+        recordLoggedInUser(uid);
       } else {
         setIsFirebaseAdmin(false);
       }
     });
+
     return () => unsubscribe();
   }, []);
 
