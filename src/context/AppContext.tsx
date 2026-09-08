@@ -152,7 +152,26 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   // Persistence Helpers
   const [users, setUsers] = useState<User[]>(() => {
     const saved = localStorage.getItem('vc_users');
-    return saved ? JSON.parse(saved) : INITIAL_USERS;
+    let list: User[] = saved ? JSON.parse(saved) : INITIAL_USERS;
+    // Guarantee that default admin soheltajbhola@gmail.com is present with role 'admin'
+    const adminIndex = list.findIndex(
+      (u) => u.id === 'user-admin' || u.email === 'soheltajbhola@gmail.com' || u.email === 'rifatkhanlol24@gmail.com'
+    );
+    if (adminIndex !== -1) {
+      list[adminIndex] = {
+        ...list[adminIndex],
+        id: 'user-admin',
+        email: 'soheltajbhola@gmail.com',
+        fullName: 'Sohel Taj (Admin)',
+        username: list[adminIndex].username === 'rifat_admin' ? 'sohel_admin' : list[adminIndex].username,
+        role: 'admin',
+        isVerified: true,
+        isVip: true,
+      };
+    } else {
+      list = [INITIAL_USERS[0], ...list];
+    }
+    return list;
   });
 
   const [currentUserId, setCurrentUserId] = useState<string>(() => {
@@ -1083,10 +1102,20 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const adminChangeRole = (userId: string, role: UserRole) => {
+    // Only an admin (specifically currentUser.role === 'admin' or email === 'soheltajbhola@gmail.com') can assign roles
+    if (currentUser?.role !== 'admin' && currentUser?.email !== 'soheltajbhola@gmail.com') {
+      showToast(lang === 'bn' ? 'শুধুমাত্র অ্যাডমিনই কাউকে মডারেটর বা অ্যাডমিন রোল দিতে পারেন।' : 'Only Admin can assign Moderator or Admin roles.');
+      return;
+    }
+    const targetUser = users.find((u) => u.id === userId);
+    if (targetUser?.email === 'soheltajbhola@gmail.com' && role !== 'admin') {
+      showToast(lang === 'bn' ? 'প্রধান অ্যাডমিন (soheltajbhola@gmail.com) এর রোল পরিবর্তন করা যাবে না।' : 'Cannot demote the default primary admin.');
+      return;
+    }
     setUsers((prev) =>
       prev.map((u) => (u.id === userId ? { ...u, role } : u))
     );
-    showToast(lang === 'bn' ? `ব্যবহারকারীর রোল পরিবর্তন করে ${role} করা হয়েছে।` : `Role updated to ${role}.`);
+    showToast(lang === 'bn' ? `ব্যবহারকারীর রোল পরিবর্তন করে ${role.toUpperCase()} করা হয়েছে।` : `Role updated to ${role.toUpperCase()}.`);
   };
 
   const adminDeleteUser = (userId: string) => {
@@ -1142,7 +1171,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     showToast(lang === 'bn' ? 'ইউজারের সমস্ত তথ্য সফলভাবে অ্যাডমিন কর্তৃক পরিবর্তিত হয়েছে!' : 'User details successfully updated by Admin!');
   };
 
-  // 1 Million Bot Engine: Send followers with default blogspot link
+  // 1 Million Bot Engine: Send followers with USER-0000000001 up to USER-1000000000 format and default blogspot link
   const adminSendBotFollowers = (
     targetUsername: string,
     count: number
@@ -1171,20 +1200,23 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       '1539571696357-5a69c17a67c6',
     ];
 
-    for (let i = 0; i < Math.min(safeCount, 25); i++) {
-      const rand = Math.floor(10000 + Math.random() * 90000);
+    const baseBotIndex = botPoolSent;
+    for (let i = 0; i < Math.min(safeCount, 50); i++) {
+      const botNum = ((baseBotIndex + i) % 1000000000) + 1;
+      const paddedNumber = String(botNum).padStart(10, '0');
+      const botUsername = `USER-${paddedNumber}`;
+      const botId = `bot-${paddedNumber}`;
       const photoId = botPhotos[i % botPhotos.length];
-      const botId = `bot-${Date.now()}-${i}-${rand}`;
       newBots.push({
         id: botId,
-        email: `bot_${rand}@techlystb.com`,
-        username: `bot_tech_${rand}`,
-        fullName: `AI Booster #${rand % 1000}`,
+        email: `user_${paddedNumber}@techlystb.com`,
+        username: botUsername,
+        fullName: botUsername,
         avatar: `https://images.unsplash.com/photo-${photoId}?w=200&auto=format&fit=crop&q=80`,
         coverImage: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&auto=format&fit=crop&q=80',
         bio: 'Official bot booster account 🤖 Powered by TechLystB & 1 social',
         website: 'https://techlystb.blogspot.com',
-        links: [{ id: `b-l-${i}-1`, title: 'Tech Lyst B', url: 'https://techlystb.blogspot.com' }],
+        links: [{ id: `b-l-${paddedNumber}-1`, title: 'Tech Lyst B', url: 'https://techlystb.blogspot.com' }],
         role: 'user',
         isVerified: false,
         isBanned: false,
@@ -1196,9 +1228,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       newFollowerIds.push(botId);
     }
 
-    // For any remaining up to safeCount, generate mock follower IDs
+    // For any remaining up to safeCount, generate mock follower IDs with the same USER-0000000000 format
     for (let i = newFollowerIds.length; i < safeCount; i++) {
-      newFollowerIds.push(`bot-id-${Date.now()}-${i}`);
+      const botNum = ((baseBotIndex + i) % 1000000000) + 1;
+      const paddedNumber = String(botNum).padStart(10, '0');
+      newFollowerIds.push(`bot-${paddedNumber}`);
     }
 
     setUsers((prev) => {
@@ -1225,8 +1259,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       type: 'system',
       text:
         lang === 'bn'
-          ? `অভিনন্দন! আপনার প্রোফাইলে +${safeCount.toLocaleString()} টি নতুন ফলোয়ার যুক্ত হয়েছে!`
-          : `Congratulations! +${safeCount.toLocaleString()} new followers added to your profile!`,
+          ? `অভিনন্দন! আপনার প্রোফাইলে +${safeCount.toLocaleString()} টি নতুন বট ফলোয়ার যুক্ত হয়েছে!`
+          : `Congratulations! +${safeCount.toLocaleString()} new bot followers added to your profile!`,
     });
 
     return {
@@ -1234,7 +1268,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       addedCount: safeCount,
       message:
         lang === 'bn'
-          ? `@${targetUser.username} এর অ্যাকাউন্টে ${safeCount.toLocaleString()} টি বট ফলোয়ার সফলভাবে যোগ করা হয়েছে!`
+          ? `@${targetUser.username} এর অ্যাকাউন্টে ${safeCount.toLocaleString()} টি বট ফলোয়ার (USER-0000000001 ফরম্যাট) সফলভাবে যোগ করা হয়েছে!`
           : `Successfully sent ${safeCount.toLocaleString()} bot followers to @${targetUser.username}!`,
     };
   };
@@ -1327,19 +1361,21 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const newComments: PostComment[] = [];
 
     for (let i = 0; i < safeCount; i++) {
-      const rand = Math.floor(1000 + Math.random() * 9000);
+      const botNum = ((botPoolSent + i) % 1000000000) + 1;
+      const paddedNumber = String(botNum).padStart(10, '0');
+      const botUsername = `USER-${paddedNumber}`;
       const text =
         customCommentText && customCommentText.trim()
           ? customCommentText.trim()
           : templates[i % templates.length];
 
       newComments.push({
-        id: `bot-cm-${Date.now()}-${i}-${rand}`,
+        id: `bot-cm-${Date.now()}-${i}-${paddedNumber}`,
         postId: targetPost.id,
-        authorId: `bot-user-${rand}`,
-        authorName: `Bot Member #${rand % 400}`,
-        authorUsername: `bot_vibes_${rand}`,
-        authorAvatar: `https://images.unsplash.com/photo-${1534528741775 + (rand % 10000)}?w=200&auto=format&fit=crop&q=80`,
+        authorId: `bot-${paddedNumber}`,
+        authorName: botUsername,
+        authorUsername: botUsername,
+        authorAvatar: `https://images.unsplash.com/photo-${1534528741775 + (i % 500)}?w=200&auto=format&fit=crop&q=80`,
         content: text,
         createdAt: new Date().toISOString(),
         likes: [],

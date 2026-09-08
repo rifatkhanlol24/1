@@ -24,9 +24,11 @@ import {
   X,
   Clock,
   UserCheck,
+  Link2,
+  Copy,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import { UserRole, User } from '../types';
+import { UserRole, User, Post } from '../types';
 import { FirebaseConsole } from './FirebaseConsole';
 
 export const AdminPanel: React.FC = () => {
@@ -60,18 +62,65 @@ export const AdminPanel: React.FC = () => {
   const [broadcastTitle, setBroadcastTitle] = useState('');
   const [broadcastMsg, setBroadcastMsg] = useState('');
 
-  // Bot follower state
-  const [botTargetUser, setBotTargetUser] = useState(users[0]?.username || '');
+  // Bot follower state (supports custom profile link, @username, or search)
+  const [botSearchInput, setBotSearchInput] = useState(users[0]?.username || '');
   const [botFollowersCount, setBotFollowersCount] = useState<number>(1000);
 
-  // Auto like state
-  const [autoLikePostId, setAutoLikePostId] = useState(posts[0]?.id || '');
+  // Auto like state (supports custom post link or post ID)
+  const [autoLikeSearchInput, setAutoLikeSearchInput] = useState(posts[0]?.id || '');
   const [autoLikeCount, setAutoLikeCount] = useState<number>(500);
 
-  // Auto comment state
-  const [autoCommentPostId, setAutoCommentPostId] = useState(posts[0]?.id || '');
+  // Auto comment state (supports custom post link or post ID)
+  const [autoCommentSearchInput, setAutoCommentSearchInput] = useState(posts[0]?.id || '');
   const [autoCommentCount, setAutoCommentCount] = useState<number>(10);
   const [autoCommentCustomText, setAutoCommentCustomText] = useState('');
+
+  // Resolvers for Profile Link / Username Search
+  const resolveTargetUser = (input: string): User | null => {
+    if (!input || !input.trim()) return null;
+    let term = input.trim();
+    // Support full links e.g. https://domain.com/?u=sarah or /?u=sarah
+    if (term.includes('u=')) {
+      const match = term.match(/[?&]u=([a-zA-Z0-9_.-]+)/);
+      if (match) term = match[1];
+    } else if (term.includes('/profile/')) {
+      const parts = term.split('/profile/');
+      if (parts[1]) term = parts[1].split(/[?#]/)[0];
+    } else if (term.includes('/u/')) {
+      const parts = term.split('/u/');
+      if (parts[1]) term = parts[1].split(/[?#]/)[0];
+    }
+    term = term.toLowerCase().replace(/^@/, '').trim();
+    return (
+      users.find(
+        (u) =>
+          u.username.toLowerCase() === term ||
+          u.id.toLowerCase() === term ||
+          u.fullName.toLowerCase() === term
+      ) || null
+    );
+  };
+
+  // Resolvers for Post Link / Post ID Search
+  const resolveTargetPost = (input: string): Post | null => {
+    if (!input || !input.trim()) return null;
+    let term = input.trim();
+    // Support full links e.g. https://domain.com/?post=post-1 or /post/post-1
+    if (term.includes('post=')) {
+      const match = term.match(/[?&]post=([a-zA-Z0-9_.-]+)/);
+      if (match) term = match[1];
+    } else if (term.includes('/post/')) {
+      const parts = term.split('/post/');
+      if (parts[1]) term = parts[1].split(/[?#]/)[0];
+    }
+    term = term.trim().toLowerCase();
+    return posts.find((p) => p.id.toLowerCase() === term) || null;
+  };
+
+  // Resolved targets for instant UI preview
+  const previewedBotUser = resolveTargetUser(botSearchInput);
+  const previewedLikePost = resolveTargetPost(autoLikeSearchInput);
+  const previewedCommentPost = resolveTargetPost(autoCommentSearchInput);
 
   // Admin User Edit Override Modal state
   const [editingUser, setEditingUser] = useState<User | null>(null);
@@ -82,7 +131,8 @@ export const AdminPanel: React.FC = () => {
   const [editUserIsVip, setEditUserIsVip] = useState(false);
   const [editUserIsVerified, setEditUserIsVerified] = useState(false);
 
-  const isAdmin = currentUser?.role === 'admin';
+  // Default admin soheltajbhola@gmail.com check
+  const isAdmin = currentUser?.role === 'admin' || currentUser?.email === 'soheltajbhola@gmail.com';
 
   // Metrics
   const totalUsers = users.length;
@@ -111,32 +161,35 @@ export const AdminPanel: React.FC = () => {
 
   const handleSendBots = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!botTargetUser) {
-      showToast(lang === 'bn' ? 'টার্গেট ইউজার নির্বাচন করুন' : 'Select target user');
+    const target = previewedBotUser || resolveTargetUser(botSearchInput);
+    if (!target) {
+      showToast(lang === 'bn' ? 'টার্গেট প্রোফাইল পাওয়া যায়নি! সঠিক প্রোফাইল লিঙ্ক পেস্ট করুন বা ইউজারনেম দিন।' : 'Target user not found! Paste valid profile link or username.');
       return;
     }
-    const res = adminSendBotFollowers(botTargetUser, botFollowersCount);
+    const res = adminSendBotFollowers(target.username, botFollowersCount);
     showToast(res.message);
   };
 
   const handleSendAutoLikes = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!autoLikePostId) {
-      showToast(lang === 'bn' ? 'পোস্ট নির্বাচন করুন' : 'Select target post');
+    const target = previewedLikePost || resolveTargetPost(autoLikeSearchInput);
+    if (!target) {
+      showToast(lang === 'bn' ? 'টার্গেট পোস্ট পাওয়া যায়নি! সঠিক পোস্ট লিঙ্ক বা পোস্ট আইডি দিন।' : 'Target post not found! Paste valid post link or ID.');
       return;
     }
-    const res = adminSendAutoLikes(autoLikePostId, autoLikeCount);
+    const res = adminSendAutoLikes(target.id, autoLikeCount);
     showToast(res.message);
   };
 
   const handleSendAutoComments = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!autoCommentPostId) {
-      showToast(lang === 'bn' ? 'পোস্ট নির্বাচন করুন' : 'Select target post');
+    const target = previewedCommentPost || resolveTargetPost(autoCommentSearchInput);
+    if (!target) {
+      showToast(lang === 'bn' ? 'টার্গেট পোস্ট পাওয়া যায়নি! সঠিক পোস্ট লিঙ্ক বা পোস্ট আইডি দিন।' : 'Target post not found! Paste valid post link or ID.');
       return;
     }
     const res = adminSendAutoComments(
-      autoCommentPostId,
+      target.id,
       autoCommentCount,
       autoCommentCustomText.trim() || undefined
     );
@@ -395,7 +448,15 @@ export const AdminPanel: React.FC = () => {
                       <select
                         value={u.role}
                         onChange={(e) => adminChangeRole(u.id, e.target.value as UserRole)}
-                        className="text-[11px] font-semibold bg-neutral-100 dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 rounded-lg p-1 text-neutral-800 dark:text-neutral-200"
+                        disabled={!isAdmin || u.email === 'soheltajbhola@gmail.com'}
+                        className="text-[11px] font-semibold bg-neutral-100 dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 rounded-lg p-1 text-neutral-800 dark:text-neutral-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                        title={
+                          u.email === 'soheltajbhola@gmail.com'
+                            ? 'Default Super Admin (Locked)'
+                            : !isAdmin
+                            ? 'Only Admin can change user roles'
+                            : 'Change user role'
+                        }
                       >
                         <option value="user">USER</option>
                         <option value="moderator">MODERATOR</option>
@@ -604,219 +665,468 @@ export const AdminPanel: React.FC = () => {
       {activeSubTab === 'automation' && (
         <div className="space-y-6">
           {/* Bot Pool Summary Banner */}
-          <div className="p-5 rounded-3xl bg-gradient-to-r from-purple-900 to-indigo-900 text-white shadow-md border border-purple-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="p-5 rounded-3xl bg-gradient-to-r from-purple-950 via-indigo-950 to-neutral-900 text-white shadow-xl border border-purple-800/60 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div>
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/20 text-white text-xs font-bold mb-2">
-                <Bot className="w-3.5 h-3.5" />
-                <span>1 Million Bot Engine • Default Link: https://techlystb.blogspot.com</span>
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-500/20 border border-purple-400/30 text-purple-200 text-xs font-bold mb-2">
+                <Bot className="w-3.5 h-3.5 text-purple-400" />
+                <span>1 Million Bot Engine • USER-0000000001 to USER-1000000000</span>
               </div>
-              <h3 className="text-xl font-black">
-                {lang === 'bn' ? 'অটোমেশন ও বট গ্রোথ কন্ট্রোল সেন্টার' : 'Bot & Auto-Engagement Control'}
+              <h3 className="text-xl font-black flex items-center gap-2">
+                <span>{lang === 'bn' ? 'অটো-এনগেজমেন্ট কন্ট্রোল সেন্টার' : 'Auto-Engagement Control Center'}</span>
+                <Sparkles className="w-5 h-5 text-amber-400" />
               </h3>
-              <p className="text-xs text-purple-200 mt-1 max-w-xl">
+              <p className="text-xs text-purple-200/90 mt-1 max-w-xl">
                 {lang === 'bn'
-                  ? 'বট পুল থেকে যেকোনো ইউজারের একাউন্টে নির্দিষ্ট পরিমাণ অনুসারী পাঠান অথবা যেকোনো পোস্টে লাইক ও কমেন্ট ইনজেক্ট করুন।'
-                  : 'Inject real bot followers into any profile or boost posts with auto-likes and realistic comments.'}
+                  ? 'প্রোফাইল লিঙ্ক পেস্ট করে বা ইউজারনেম দিয়ে সার্চ করে যেকোনো অ্যাকাউন্টে ইনস্ট্যান্ট বট ফলোয়ার পাঠান। অথবা পোস্ট লিঙ্ক পেস্ট করে অটো-লাইক ও কমেন্ট ইনজেক্ট করুন।'
+                  : 'Search by profile link or username to inject bots, or paste post links to boost with auto-likes and realistic comments.'}
               </p>
             </div>
 
-            <div className="bg-white/10 backdrop-blur-md p-3.5 rounded-2xl border border-white/20 text-center shrink-0">
-              <span className="text-[10px] text-purple-200 uppercase font-bold tracking-wider block">Available Bots</span>
-              <span className="text-2xl font-black text-white">{(botPoolTotal - botPoolSent).toLocaleString()}</span>
+            <div className="bg-white/10 backdrop-blur-md p-4 rounded-2xl border border-white/20 text-center shrink-0 w-full sm:w-auto">
+              <span className="text-[10px] text-purple-200 uppercase font-bold tracking-wider block">Available Bot Pool</span>
+              <span className="text-2xl font-black text-white font-mono">{(botPoolTotal - botPoolSent).toLocaleString()}</span>
+              <span className="text-[10px] text-purple-300 block mt-0.5">Format: USER-XXXXXXXXXX</span>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
             {/* Tool 1: Bot Followers Sender */}
-            <div className="rounded-3xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-5 shadow-sm space-y-4">
-              <div className="flex items-center gap-2 pb-2 border-b border-neutral-100 dark:border-neutral-800">
-                <div className="p-2 rounded-xl bg-purple-50 dark:bg-purple-950 text-purple-600">
-                  <Bot className="w-4 h-4" />
+            <div className="rounded-3xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-5 shadow-sm flex flex-col justify-between space-y-4">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between pb-3 border-b border-neutral-100 dark:border-neutral-800">
+                  <div className="flex items-center gap-2">
+                    <div className="p-2 rounded-xl bg-purple-50 dark:bg-purple-950 text-purple-600 dark:text-purple-400">
+                      <Bot className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-xs text-neutral-900 dark:text-neutral-100">
+                        {lang === 'bn' ? 'বট ফলোয়ার ইনজেকশন' : 'Bot Followers Injection'}
+                      </h4>
+                      <p className="text-[10px] text-neutral-400">Target custom profile link / username</p>
+                    </div>
+                  </div>
+                  <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/60 text-purple-700 dark:text-purple-300">
+                    USER-0000000001
+                  </span>
                 </div>
-                <div>
-                  <h4 className="font-bold text-xs text-neutral-900 dark:text-neutral-100">
-                    {lang === 'bn' ? 'বট ফলোয়ার পাঠান' : 'Send Bot Followers'}
-                  </h4>
-                  <p className="text-[10px] text-neutral-400">Target profile follower injection</p>
-                </div>
+
+                <form onSubmit={handleSendBots} className="space-y-3.5">
+                  {/* Custom Link / Username Input */}
+                  <div>
+                    <label className="text-[11px] font-semibold text-neutral-700 dark:text-neutral-300 block mb-1 flex items-center justify-between">
+                      <span>{lang === 'bn' ? 'প্রোফাইল লিঙ্ক বা ইউজারনেম:' : 'Profile Link or Username:'}</span>
+                      <span className="text-[10px] text-indigo-500 font-normal">Link or @username</span>
+                    </label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-neutral-400">
+                        <Link2 className="w-3.5 h-3.5" />
+                      </div>
+                      <input
+                        type="text"
+                        value={botSearchInput}
+                        onChange={(e) => setBotSearchInput(e.target.value)}
+                        placeholder="https://.../?u=username অথবা @username"
+                        className="w-full text-xs pl-8 pr-2.5 py-2 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                      />
+                    </div>
+                    {/* Quick Pick Chips */}
+                    <div className="flex items-center gap-1.5 mt-1.5 overflow-x-auto pb-1 text-[10px] text-neutral-500">
+                      <span className="shrink-0 text-neutral-400">Quick:</span>
+                      {users.slice(0, 4).map((u) => (
+                        <button
+                          key={u.id}
+                          type="button"
+                          onClick={() => setBotSearchInput(u.username)}
+                          className="px-2 py-0.5 rounded-md bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-300 shrink-0 font-mono"
+                        >
+                          @{u.username}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Profile Preview Card */}
+                  <div className="rounded-2xl border border-dashed border-purple-200 dark:border-purple-900/80 bg-purple-50/40 dark:bg-purple-950/20 p-3">
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-purple-600 dark:text-purple-400 mb-2 flex items-center justify-between">
+                      <span>{lang === 'bn' ? 'টার্গেট প্রোফাইল প্রিভিউ' : 'Profile Preview'}</span>
+                      {previewedBotUser && (
+                        <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1">
+                          <CheckCircle className="w-3 h-3" />
+                          {lang === 'bn' ? 'পাওয়া গেছে' : 'Verified'}
+                        </span>
+                      )}
+                    </p>
+
+                    {previewedBotUser ? (
+                      <div className="flex items-center gap-3">
+                        <img
+                          src={previewedBotUser.avatar}
+                          alt=""
+                          className="w-11 h-11 rounded-full object-cover border-2 border-purple-300 dark:border-purple-700 shrink-0"
+                        />
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1">
+                            <span className="font-bold text-xs text-neutral-900 dark:text-neutral-100 truncate">
+                              {previewedBotUser.fullName}
+                            </span>
+                            {previewedBotUser.isVip && <Crown className="w-3 h-3 text-amber-500 shrink-0" />}
+                            {previewedBotUser.isVerified && <CheckCircle className="w-3 h-3 text-sky-500 shrink-0" />}
+                          </div>
+                          <p className="text-[11px] text-purple-700 dark:text-purple-300 font-mono truncate">
+                            @{previewedBotUser.username}
+                          </p>
+                          <div className="flex items-center gap-2 mt-1 text-[10px] text-neutral-500 dark:text-neutral-400">
+                            <span>
+                              Followers: <strong>{previewedBotUser.followers.length.toLocaleString()}</strong>
+                            </span>
+                            <span>•</span>
+                            <span>
+                              Following: <strong>{previewedBotUser.following.length}</strong>
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-center py-3 text-neutral-400 text-xs">
+                        <Search className="w-5 h-5 mx-auto mb-1 opacity-50" />
+                        <span>{lang === 'bn' ? 'সঠিক লিঙ্ক বা ইউজারনেম পেস্ট করুন' : 'Paste profile link or username to preview'}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] font-semibold text-neutral-700 dark:text-neutral-300 block mb-1">
+                      {lang === 'bn' ? 'বট সংখ্যা:' : 'Bot Count:'}
+                    </label>
+                    <select
+                      value={botFollowersCount}
+                      onChange={(e) => setBotFollowersCount(Number(e.target.value))}
+                      className="w-full text-xs p-2 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100"
+                    >
+                      <option value={100}>100 Followers (USER-0000000001...)</option>
+                      <option value={500}>500 Followers</option>
+                      <option value={1000}>1,000 Followers</option>
+                      <option value={5000}>5,000 Followers</option>
+                      <option value={10000}>10,000 Followers</option>
+                      <option value={50000}>50,000 Followers</option>
+                      <option value={100000}>100,000 Followers</option>
+                    </select>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={!previewedBotUser}
+                    className="w-full py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 disabled:opacity-50 text-white font-bold text-xs shadow-md shadow-purple-500/20 flex items-center justify-center gap-1.5 transition-all"
+                  >
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>
+                      {previewedBotUser
+                        ? lang === 'bn'
+                          ? `@${previewedBotUser.username} কে ${botFollowersCount.toLocaleString()} বট পাঠান`
+                          : `Send ${botFollowersCount.toLocaleString()} Bots to @${previewedBotUser.username}`
+                        : lang === 'bn'
+                        ? 'বট ফলোয়ার সেন্ড করুন'
+                        : 'Inject Bot Followers'}
+                    </span>
+                  </button>
+                </form>
               </div>
-
-              <form onSubmit={handleSendBots} className="space-y-3">
-                <div>
-                  <label className="text-[11px] font-semibold text-neutral-700 dark:text-neutral-300 block mb-1">
-                    {lang === 'bn' ? 'টার্গেট ইউজার:' : 'Target User:'}
-                  </label>
-                  <select
-                    value={botTargetUser}
-                    onChange={(e) => setBotTargetUser(e.target.value)}
-                    className="w-full text-xs p-2 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100"
-                  >
-                    {users.map((u) => (
-                      <option key={u.id} value={u.username}>
-                        {u.fullName} (@{u.username})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="text-[11px] font-semibold text-neutral-700 dark:text-neutral-300 block mb-1">
-                    {lang === 'bn' ? 'বট সংখ্যা:' : 'Bot Count:'}
-                  </label>
-                  <select
-                    value={botFollowersCount}
-                    onChange={(e) => setBotFollowersCount(Number(e.target.value))}
-                    className="w-full text-xs p-2 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100"
-                  >
-                    <option value={100}>100 Followers</option>
-                    <option value={500}>500 Followers</option>
-                    <option value={1000}>1,000 Followers</option>
-                    <option value={5000}>5,000 Followers</option>
-                    <option value={10000}>10,000 Followers</option>
-                    <option value={50000}>50,000 Followers</option>
-                    <option value={100000}>100,000 Followers</option>
-                  </select>
-                </div>
-
-                <button
-                  type="submit"
-                  className="w-full py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs shadow-sm flex items-center justify-center gap-1.5"
-                >
-                  <Sparkles className="w-3.5 h-3.5" />
-                  <span>{lang === 'bn' ? 'বট ফলোয়ার সেন্ড করুন' : 'Inject Bot Followers'}</span>
-                </button>
-              </form>
             </div>
 
             {/* Tool 2: Auto Likes Sender */}
-            <div className="rounded-3xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-5 shadow-sm space-y-4">
-              <div className="flex items-center gap-2 pb-2 border-b border-neutral-100 dark:border-neutral-800">
-                <div className="p-2 rounded-xl bg-rose-50 dark:bg-rose-950 text-rose-600">
-                  <Heart className="w-4 h-4" />
+            <div className="rounded-3xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-5 shadow-sm flex flex-col justify-between space-y-4">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between pb-3 border-b border-neutral-100 dark:border-neutral-800">
+                  <div className="flex items-center gap-2">
+                    <div className="p-2 rounded-xl bg-rose-50 dark:bg-rose-950 text-rose-600 dark:text-rose-400">
+                      <Heart className="w-4 h-4 fill-current" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-xs text-neutral-900 dark:text-neutral-100">
+                        {lang === 'bn' ? 'অটো-লাইক বুস্ট' : 'Auto Likes Boost'}
+                      </h4>
+                      <p className="text-[10px] text-neutral-400">Target custom post link or ID</p>
+                    </div>
+                  </div>
+                  <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-rose-100 dark:bg-rose-900/60 text-rose-700 dark:text-rose-300">
+                    Instant Likes
+                  </span>
                 </div>
-                <div>
-                  <h4 className="font-bold text-xs text-neutral-900 dark:text-neutral-100">
-                    {lang === 'bn' ? 'অটো-লাইক ইনজেক্ট' : 'Auto Likes Boost'}
-                  </h4>
-                  <p className="text-[10px] text-neutral-400">Inject instant likes to post</p>
-                </div>
+
+                <form onSubmit={handleSendAutoLikes} className="space-y-3.5">
+                  {/* Custom Post Link / ID Input */}
+                  <div>
+                    <label className="text-[11px] font-semibold text-neutral-700 dark:text-neutral-300 block mb-1 flex items-center justify-between">
+                      <span>{lang === 'bn' ? 'পোস্ট লিঙ্ক বা পোস্ট আইডি:' : 'Post Link or Post ID:'}</span>
+                      <span className="text-[10px] text-rose-500 font-normal">Link or post-ID</span>
+                    </label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-neutral-400">
+                        <Link2 className="w-3.5 h-3.5" />
+                      </div>
+                      <input
+                        type="text"
+                        value={autoLikeSearchInput}
+                        onChange={(e) => setAutoLikeSearchInput(e.target.value)}
+                        placeholder="https://.../?post=post-1 অথবা post-1"
+                        className="w-full text-xs pl-8 pr-2.5 py-2 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 focus:ring-2 focus:ring-rose-500 focus:outline-none font-mono"
+                      />
+                    </div>
+                    {/* Quick Pick Post Chips */}
+                    <div className="flex items-center gap-1.5 mt-1.5 overflow-x-auto pb-1 text-[10px] text-neutral-500">
+                      <span className="shrink-0 text-neutral-400">Quick:</span>
+                      {posts.slice(0, 3).map((p) => (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => setAutoLikeSearchInput(p.id)}
+                          className="px-2 py-0.5 rounded-md bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-300 shrink-0 font-mono"
+                        >
+                          {p.id} ({p.authorName.split(' ')[0]})
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Post Preview Card */}
+                  <div className="rounded-2xl border border-dashed border-rose-200 dark:border-rose-900/80 bg-rose-50/40 dark:bg-rose-950/20 p-3">
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-rose-600 dark:text-rose-400 mb-2 flex items-center justify-between">
+                      <span>{lang === 'bn' ? 'টার্গেট পোস্ট প্রিভিউ' : 'Post Preview'}</span>
+                      {previewedLikePost && (
+                        <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1">
+                          <CheckCircle className="w-3 h-3" />
+                          {lang === 'bn' ? 'পাওয়া গেছে' : 'Verified'}
+                        </span>
+                      )}
+                    </p>
+
+                    {previewedLikePost ? (
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2.5">
+                          <img
+                            src={previewedLikePost.authorAvatar}
+                            alt=""
+                            className="w-7 h-7 rounded-full object-cover shrink-0"
+                          />
+                          <div className="min-w-0 flex-1">
+                            <span className="font-bold text-xs text-neutral-900 dark:text-neutral-100 block truncate">
+                              {previewedLikePost.authorName}
+                            </span>
+                            <span className="text-[10px] text-neutral-400 font-mono">ID: {previewedLikePost.id}</span>
+                          </div>
+                          {previewedLikePost.imageUrl && (
+                            <img
+                              src={previewedLikePost.imageUrl}
+                              alt=""
+                              className="w-9 h-9 rounded-lg object-cover shrink-0 border border-neutral-200 dark:border-neutral-700"
+                            />
+                          )}
+                        </div>
+                        <p className="text-xs text-neutral-700 dark:text-neutral-300 line-clamp-2 italic">
+                          "{previewedLikePost.content}"
+                        </p>
+                        <div className="flex items-center gap-3 text-[10px] text-neutral-500 dark:text-neutral-400 pt-1 border-t border-rose-100 dark:border-rose-900/50">
+                          <span className="text-rose-600 dark:text-rose-400 font-bold">
+                            ❤️ {previewedLikePost.likes.length.toLocaleString()} Likes
+                          </span>
+                          <span>💬 {previewedLikePost.comments.length} Comments</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-center py-3 text-neutral-400 text-xs">
+                        <Search className="w-5 h-5 mx-auto mb-1 opacity-50" />
+                        <span>{lang === 'bn' ? 'সঠিক পোস্ট লিঙ্ক বা আইডি পেস্ট করুন' : 'Paste post link or ID to preview'}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] font-semibold text-neutral-700 dark:text-neutral-300 block mb-1">
+                      {lang === 'bn' ? 'লাইক সংখ্যা:' : 'Likes Quantity:'}
+                    </label>
+                    <select
+                      value={autoLikeCount}
+                      onChange={(e) => setAutoLikeCount(Number(e.target.value))}
+                      className="w-full text-xs p-2 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100"
+                    >
+                      <option value={50}>50 Likes</option>
+                      <option value={100}>100 Likes</option>
+                      <option value={500}>500 Likes</option>
+                      <option value={1000}>1,000 Likes</option>
+                      <option value={2500}>2,500 Likes</option>
+                      <option value={10000}>10,000 Likes</option>
+                    </select>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={!previewedLikePost}
+                    className="w-full py-2.5 rounded-xl bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-700 hover:to-pink-700 disabled:opacity-50 text-white font-bold text-xs shadow-md shadow-rose-500/20 flex items-center justify-center gap-1.5 transition-all"
+                  >
+                    <Heart className="w-3.5 h-3.5 fill-current" />
+                    <span>
+                      {previewedLikePost
+                        ? lang === 'bn'
+                          ? `পোস্টে +${autoLikeCount.toLocaleString()} লাইক সেন্ড করুন`
+                          : `Inject +${autoLikeCount.toLocaleString()} Likes to Post`
+                        : lang === 'bn'
+                        ? 'অটো লাইক সেন্ড করুন'
+                        : 'Inject Auto Likes'}
+                    </span>
+                  </button>
+                </form>
               </div>
-
-              <form onSubmit={handleSendAutoLikes} className="space-y-3">
-                <div>
-                  <label className="text-[11px] font-semibold text-neutral-700 dark:text-neutral-300 block mb-1">
-                    {lang === 'bn' ? 'টার্গেট পোস্ট:' : 'Target Post:'}
-                  </label>
-                  <select
-                    value={autoLikePostId}
-                    onChange={(e) => setAutoLikePostId(e.target.value)}
-                    className="w-full text-xs p-2 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100"
-                  >
-                    {posts.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.authorName}: "{p.content.slice(0, 25)}..."
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="text-[11px] font-semibold text-neutral-700 dark:text-neutral-300 block mb-1">
-                    {lang === 'bn' ? 'লাইক সংখ্যা:' : 'Likes Quantity:'}
-                  </label>
-                  <select
-                    value={autoLikeCount}
-                    onChange={(e) => setAutoLikeCount(Number(e.target.value))}
-                    className="w-full text-xs p-2 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100"
-                  >
-                    <option value={50}>50 Likes</option>
-                    <option value={100}>100 Likes</option>
-                    <option value={500}>500 Likes</option>
-                    <option value={1000}>1,000 Likes</option>
-                    <option value={2500}>2,500 Likes</option>
-                    <option value={10000}>10,000 Likes</option>
-                  </select>
-                </div>
-
-                <button
-                  type="submit"
-                  className="w-full py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-sm flex items-center justify-center gap-1.5"
-                >
-                  <Heart className="w-3.5 h-3.5 fill-current" />
-                  <span>{lang === 'bn' ? 'অটো লাইক সেন্ড করুন' : 'Inject Auto Likes'}</span>
-                </button>
-              </form>
             </div>
 
             {/* Tool 3: Auto Comments Generator */}
-            <div className="rounded-3xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-5 shadow-sm space-y-4">
-              <div className="flex items-center gap-2 pb-2 border-b border-neutral-100 dark:border-neutral-800">
-                <div className="p-2 rounded-xl bg-indigo-50 dark:bg-indigo-950 text-indigo-600">
-                  <MessageSquare className="w-4 h-4" />
+            <div className="rounded-3xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-5 shadow-sm flex flex-col justify-between space-y-4">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between pb-3 border-b border-neutral-100 dark:border-neutral-800">
+                  <div className="flex items-center gap-2">
+                    <div className="p-2 rounded-xl bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400">
+                      <MessageSquare className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-xs text-neutral-900 dark:text-neutral-100">
+                        {lang === 'bn' ? 'অটো-কমেন্ট জেনারেটর' : 'Auto Comments Generator'}
+                      </h4>
+                      <p className="text-[10px] text-neutral-400">Realistic comments from USER-bots</p>
+                    </div>
+                  </div>
+                  <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300">
+                    USER-bots
+                  </span>
                 </div>
-                <div>
-                  <h4 className="font-bold text-xs text-neutral-900 dark:text-neutral-100">
-                    {lang === 'bn' ? 'অটো-কমেন্ট জেনারেটর' : 'Auto Comments Generator'}
-                  </h4>
-                  <p className="text-[10px] text-neutral-400">Generate realistic engagement</p>
-                </div>
+
+                <form onSubmit={handleSendAutoComments} className="space-y-3.5">
+                  {/* Custom Post Link / ID Input */}
+                  <div>
+                    <label className="text-[11px] font-semibold text-neutral-700 dark:text-neutral-300 block mb-1 flex items-center justify-between">
+                      <span>{lang === 'bn' ? 'পোস্ট লিঙ্ক বা পোস্ট আইডি:' : 'Post Link or Post ID:'}</span>
+                      <span className="text-[10px] text-indigo-500 font-normal">Link or post-ID</span>
+                    </label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-neutral-400">
+                        <Link2 className="w-3.5 h-3.5" />
+                      </div>
+                      <input
+                        type="text"
+                        value={autoCommentSearchInput}
+                        onChange={(e) => setAutoCommentSearchInput(e.target.value)}
+                        placeholder="https://.../?post=post-1 অথবা post-1"
+                        className="w-full text-xs pl-8 pr-2.5 py-2 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 focus:ring-2 focus:ring-indigo-500 focus:outline-none font-mono"
+                      />
+                    </div>
+                    {/* Quick Pick Post Chips */}
+                    <div className="flex items-center gap-1.5 mt-1.5 overflow-x-auto pb-1 text-[10px] text-neutral-500">
+                      <span className="shrink-0 text-neutral-400">Quick:</span>
+                      {posts.slice(0, 3).map((p) => (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => setAutoCommentSearchInput(p.id)}
+                          className="px-2 py-0.5 rounded-md bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-300 shrink-0 font-mono"
+                        >
+                          {p.id} ({p.authorName.split(' ')[0]})
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Post Preview Card */}
+                  <div className="rounded-2xl border border-dashed border-indigo-200 dark:border-indigo-900/80 bg-indigo-50/40 dark:bg-indigo-950/20 p-3">
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 mb-2 flex items-center justify-between">
+                      <span>{lang === 'bn' ? 'টার্গেট পোস্ট প্রিভিউ' : 'Post Preview'}</span>
+                      {previewedCommentPost && (
+                        <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1">
+                          <CheckCircle className="w-3 h-3" />
+                          {lang === 'bn' ? 'পাওয়া গেছে' : 'Verified'}
+                        </span>
+                      )}
+                    </p>
+
+                    {previewedCommentPost ? (
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2.5">
+                          <img
+                            src={previewedCommentPost.authorAvatar}
+                            alt=""
+                            className="w-7 h-7 rounded-full object-cover shrink-0"
+                          />
+                          <div className="min-w-0 flex-1">
+                            <span className="font-bold text-xs text-neutral-900 dark:text-neutral-100 block truncate">
+                              {previewedCommentPost.authorName}
+                            </span>
+                            <span className="text-[10px] text-neutral-400 font-mono">ID: {previewedCommentPost.id}</span>
+                          </div>
+                        </div>
+                        <p className="text-xs text-neutral-700 dark:text-neutral-300 line-clamp-2 italic">
+                          "{previewedCommentPost.content}"
+                        </p>
+                        <div className="flex items-center gap-3 text-[10px] text-neutral-500 dark:text-neutral-400 pt-1 border-t border-indigo-100 dark:border-indigo-900/50">
+                          <span>❤️ {previewedCommentPost.likes.length} Likes</span>
+                          <span className="text-indigo-600 dark:text-indigo-400 font-bold">
+                            💬 {previewedCommentPost.comments.length} Comments
+                          </span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-center py-3 text-neutral-400 text-xs">
+                        <Search className="w-5 h-5 mx-auto mb-1 opacity-50" />
+                        <span>{lang === 'bn' ? 'সঠিক পোস্ট লিঙ্ক বা আইডি পেস্ট করুন' : 'Paste post link or ID to preview'}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-[11px] font-semibold text-neutral-700 dark:text-neutral-300 block mb-1">
+                        {lang === 'bn' ? 'কমেন্ট সংখ্যা:' : 'Count:'}
+                      </label>
+                      <select
+                        value={autoCommentCount}
+                        onChange={(e) => setAutoCommentCount(Number(e.target.value))}
+                        className="w-full text-xs p-2 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100"
+                      >
+                        <option value={5}>5 Comments</option>
+                        <option value={10}>10 Comments</option>
+                        <option value={25}>25 Comments</option>
+                        <option value={50}>50 Comments</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="text-[11px] font-semibold text-neutral-700 dark:text-neutral-300 block mb-1">
+                        {lang === 'bn' ? 'কাস্টম টেক্সট:' : 'Custom Text:'}
+                      </label>
+                      <input
+                        type="text"
+                        value={autoCommentCustomText}
+                        onChange={(e) => setAutoCommentCustomText(e.target.value)}
+                        placeholder="অসাধারণ পোস্ট! 🔥"
+                        className="w-full text-xs p-2 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100"
+                      />
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={!previewedCommentPost}
+                    className="w-full py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 disabled:opacity-50 text-white font-bold text-xs shadow-md shadow-indigo-500/20 flex items-center justify-center gap-1.5 transition-all"
+                  >
+                    <MessageSquare className="w-3.5 h-3.5" />
+                    <span>
+                      {previewedCommentPost
+                        ? lang === 'bn'
+                          ? `পোস্টে +${autoCommentCount} কমেন্ট সেন্ড করুন`
+                          : `Send +${autoCommentCount} Comments to Post`
+                        : lang === 'bn'
+                        ? 'অটো কমেন্ট তৈরি করুন'
+                        : 'Generate Comments'}
+                    </span>
+                  </button>
+                </form>
               </div>
-
-              <form onSubmit={handleSendAutoComments} className="space-y-3">
-                <div>
-                  <label className="text-[11px] font-semibold text-neutral-700 dark:text-neutral-300 block mb-1">
-                    {lang === 'bn' ? 'টার্গেট পোস্ট:' : 'Target Post:'}
-                  </label>
-                  <select
-                    value={autoCommentPostId}
-                    onChange={(e) => setAutoCommentPostId(e.target.value)}
-                    className="w-full text-xs p-2 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100"
-                  >
-                    {posts.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.authorName}: "{p.content.slice(0, 25)}..."
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="text-[11px] font-semibold text-neutral-700 dark:text-neutral-300 block mb-1">
-                    {lang === 'bn' ? 'কমেন্ট সংখ্যা:' : 'Comments Quantity:'}
-                  </label>
-                  <select
-                    value={autoCommentCount}
-                    onChange={(e) => setAutoCommentCount(Number(e.target.value))}
-                    className="w-full text-xs p-2 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100"
-                  >
-                    <option value={5}>5 Comments</option>
-                    <option value={10}>10 Comments</option>
-                    <option value={25}>25 Comments</option>
-                    <option value={50}>50 Comments</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="text-[11px] font-semibold text-neutral-700 dark:text-neutral-300 block mb-1">
-                    {lang === 'bn' ? 'কাস্টম কমেন্ট (ঐচ্ছিক):' : 'Custom Comment Text (Optional):'}
-                  </label>
-                  <input
-                    type="text"
-                    value={autoCommentCustomText}
-                    onChange={(e) => setAutoCommentCustomText(e.target.value)}
-                    placeholder="e.g. অসাধারণ পোস্ট! 🔥"
-                    className="w-full text-xs p-2 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100"
-                  />
-                </div>
-
-                <button
-                  type="submit"
-                  className="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-sm flex items-center justify-center gap-1.5"
-                >
-                  <MessageSquare className="w-3.5 h-3.5" />
-                  <span>{lang === 'bn' ? 'অটো কমেন্ট তৈরি করুন' : 'Generate Comments'}</span>
-                </button>
-              </form>
             </div>
           </div>
         </div>
@@ -964,9 +1274,9 @@ export const AdminPanel: React.FC = () => {
 
       {/* Admin User Profile Override Modal */}
       {editingUser && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/60 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-3xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 shadow-2xl p-6 space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-neutral-100 dark:border-neutral-800">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm">
+          <div className="w-full max-w-md max-h-[90vh] flex flex-col rounded-3xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between p-5 border-b border-neutral-100 dark:border-neutral-800 shrink-0">
               <h3 className="font-bold text-base text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
                 <ShieldCheck className="w-5 h-5 text-indigo-500" />
                 <span>Admin Override: {editingUser.fullName}</span>
@@ -979,94 +1289,96 @@ export const AdminPanel: React.FC = () => {
               </button>
             </div>
 
-            <form onSubmit={handleSaveUserOverride} className="space-y-3.5">
-              <div>
-                <label className="text-xs font-semibold text-neutral-700 dark:text-neutral-300 block mb-1">
-                  Full Name:
-                </label>
-                <input
-                  type="text"
-                  value={editUserFullName}
-                  onChange={(e) => setEditUserFullName(e.target.value)}
-                  className="w-full text-xs p-2.5 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="text-xs font-semibold text-neutral-700 dark:text-neutral-300 block mb-1">
-                  Username:
-                </label>
-                <input
-                  type="text"
-                  value={editUserUsername}
-                  onChange={(e) => setEditUserUsername(e.target.value)}
-                  className="w-full text-xs p-2.5 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="text-xs font-semibold text-neutral-700 dark:text-neutral-300 block mb-1">
-                  Username Change Count (0-10):
-                </label>
-                <input
-                  type="number"
-                  min={0}
-                  max={10}
-                  value={editUserChangeCount}
-                  onChange={(e) => setEditUserChangeCount(Number(e.target.value))}
-                  className="w-full text-xs p-2.5 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100"
-                />
-                <span className="text-[10px] text-neutral-400">Admin can reset count to 0 so user can change again</span>
-              </div>
-
-              <div>
-                <label className="text-xs font-semibold text-neutral-700 dark:text-neutral-300 block mb-1">
-                  Bio:
-                </label>
-                <textarea
-                  rows={2}
-                  value={editUserBio}
-                  onChange={(e) => setEditUserBio(e.target.value)}
-                  className="w-full text-xs p-2.5 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 resize-none"
-                />
-              </div>
-
-              {/* VIP & Verified Direct Toggles */}
-              <div className="flex items-center gap-4 pt-1">
-                <label className="flex items-center gap-2 text-xs font-semibold text-neutral-700 dark:text-neutral-300 cursor-pointer">
+            <form onSubmit={handleSaveUserOverride} className="flex flex-col flex-1 min-h-0">
+              <div className="p-5 space-y-3.5 overflow-y-auto flex-1">
+                <div>
+                  <label className="text-xs font-semibold text-neutral-700 dark:text-neutral-300 block mb-1">
+                    Full Name:
+                  </label>
                   <input
-                    type="checkbox"
-                    checked={editUserIsVip}
-                    onChange={(e) => setEditUserIsVip(e.target.checked)}
-                    className="rounded text-amber-600 focus:ring-amber-500"
+                    type="text"
+                    value={editUserFullName}
+                    onChange={(e) => setEditUserFullName(e.target.value)}
+                    className="w-full text-xs p-2.5 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100"
+                    required
                   />
-                  <span>👑 VIP Status</span>
-                </label>
+                </div>
 
-                <label className="flex items-center gap-2 text-xs font-semibold text-neutral-700 dark:text-neutral-300 cursor-pointer">
+                <div>
+                  <label className="text-xs font-semibold text-neutral-700 dark:text-neutral-300 block mb-1">
+                    Username:
+                  </label>
                   <input
-                    type="checkbox"
-                    checked={editUserIsVerified}
-                    onChange={(e) => setEditUserIsVerified(e.target.checked)}
-                    className="rounded text-sky-600 focus:ring-sky-500"
+                    type="text"
+                    value={editUserUsername}
+                    onChange={(e) => setEditUserUsername(e.target.value)}
+                    className="w-full text-xs p-2.5 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100"
+                    required
                   />
-                  <span>🔵 Verified Badge</span>
-                </label>
+                </div>
+
+                <div>
+                  <label className="text-xs font-semibold text-neutral-700 dark:text-neutral-300 block mb-1">
+                    Username Change Count (0-10):
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    max={10}
+                    value={editUserChangeCount}
+                    onChange={(e) => setEditUserChangeCount(Number(e.target.value))}
+                    className="w-full text-xs p-2.5 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100"
+                  />
+                  <span className="text-[10px] text-neutral-400">Admin can reset count to 0 so user can change again</span>
+                </div>
+
+                <div>
+                  <label className="text-xs font-semibold text-neutral-700 dark:text-neutral-300 block mb-1">
+                    Bio:
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={editUserBio}
+                    onChange={(e) => setEditUserBio(e.target.value)}
+                    className="w-full text-xs p-2.5 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 resize-none"
+                  />
+                </div>
+
+                {/* VIP & Verified Direct Toggles */}
+                <div className="flex items-center gap-4 pt-1">
+                  <label className="flex items-center gap-2 text-xs font-semibold text-neutral-700 dark:text-neutral-300 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={editUserIsVip}
+                      onChange={(e) => setEditUserIsVip(e.target.checked)}
+                      className="rounded text-amber-600 focus:ring-amber-500"
+                    />
+                    <span>👑 VIP Status</span>
+                  </label>
+
+                  <label className="flex items-center gap-2 text-xs font-semibold text-neutral-700 dark:text-neutral-300 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={editUserIsVerified}
+                      onChange={(e) => setEditUserIsVerified(e.target.checked)}
+                      className="rounded text-sky-600 focus:ring-sky-500"
+                    />
+                    <span>🔵 Verified Badge</span>
+                  </label>
+                </div>
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-3 border-t border-neutral-100 dark:border-neutral-800">
+              <div className="p-4 bg-neutral-50 dark:bg-neutral-800/80 border-t border-neutral-100 dark:border-neutral-800 flex items-center justify-end gap-2 shrink-0">
                 <button
                   type="button"
                   onClick={() => setEditingUser(null)}
-                  className="px-4 py-2 rounded-xl text-xs text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100"
+                  className="px-4 py-2.5 rounded-xl text-xs font-semibold text-neutral-600 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-700"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm"
+                  className="px-5 py-2.5 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-md shadow-indigo-500/20"
                 >
                   Save Override
                 </button>
