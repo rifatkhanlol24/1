@@ -8,14 +8,17 @@ export interface ProfileLink {
 
 export interface User {
   id: string;
+  uid?: string;
   email: string;
   password?: string;
   username: string;
   usernameChangeCount?: number; // Maximum 10 times for regular users
+  name?: string;
   fullName: string;
   fullNameBn?: string;
   fullNameEn?: string;
   avatar: string;
+  profileImage?: string;
   coverImage: string;
   bio: string;
   bioBn?: string;
@@ -24,7 +27,9 @@ export interface User {
   links?: ProfileLink[]; // Up to 10 links
   statusBadge?: string;
   role: UserRole;
+  status?: string;
   isVerified: boolean;
+  verified?: boolean;
   isVip?: boolean;
   badge?: 'VIP' | 'Verified' | 'None';
   isBanned: boolean;

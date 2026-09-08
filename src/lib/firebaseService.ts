@@ -162,12 +162,6 @@ export const firebaseService = {
     await set(ref(db, `users/UI28ofvzB7cjNJvCG0DvYgbCu9J3`), adminUser);
     usersCount++;
 
-    for (const u of users) {
-      const userRef = ref(db, `users/${u.id}`);
-      await set(userRef, u);
-      usersCount++;
-    }
-
     for (const p of posts) {
       const postRef = ref(db, `posts/${p.id}`);
       await set(postRef, p);

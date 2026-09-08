@@ -184,35 +184,19 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [users, setUsers] = useState<User[]>(() => {
     try {
       const saved = localStorage.getItem('vc_users');
-      let list: User[] = saved ? JSON.parse(saved) : INITIAL_USERS;
-      // Purge any stale fake bot / AI Booster accounts that were previously saved in user's browser localStorage
+      let list: User[] = saved ? JSON.parse(saved) : [];
+      // Filter out stale mock users or bots
       list = list.filter(
         (u) =>
+          u.id !== 'USER_UID_001' &&
+          !u.id.startsWith('user-') &&
           !u.isBot &&
           !u.fullName?.includes('AI Booster') &&
           !u.username?.startsWith('bot_')
       );
-      // Remove hardcoded admin modifications
-      // Upgrade and sanitize every user to unique bilingual Bengali & English names
-      const sanitized = list.map(sanitizeUserToBilingual);
-      // Strict deduplication by email and username so no duplicated user accounts exist
-      const seen = new Set<string>();
-      const deduped: User[] = [];
-      for (const u of sanitized) {
-        const emailKey = (u.email || '').trim().toLowerCase();
-        const usernameKey = (u.username || '').trim().toLowerCase();
-        const idKey = u.id || '';
-        if (emailKey && seen.has(`e:${emailKey}`)) continue;
-        if (usernameKey && seen.has(`u:${usernameKey}`)) continue;
-        if (idKey && seen.has(`id:${idKey}`)) continue;
-        if (emailKey) seen.add(`e:${emailKey}`);
-        if (usernameKey) seen.add(`u:${usernameKey}`);
-        if (idKey) seen.add(`id:${idKey}`);
-        deduped.push(u);
-      }
-      return deduped;
+      return list;
     } catch {
-      return INITIAL_USERS.map(sanitizeUserToBilingual);
+      return [];
     }
   });
 
@@ -265,29 +249,50 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       const userRef = ref(db, `users/${uid}`);
       const snapshot = await get(userRef);
       if (snapshot.exists()) {
-        const data = snapshot.val() as User;
-        return {
-          ...data,
+        const val = snapshot.val() as any;
+        const loadedUser: User = {
+          ...val,
           id: uid,
+          uid: uid,
+          email: val.email || fallbackEmail || `${uid}@1social.com`,
+          username: val.username || (uid === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3' ? 'shoheltaj' : `user_${uid.slice(0, 6)}`),
+          fullName: val.fullName || val.name || fallbackName || (uid === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3' ? 'Shohel Taj' : '1Social Member'),
+          fullNameBn: val.fullNameBn || val.fullName || val.name || fallbackName,
+          fullNameEn: val.fullNameEn || val.fullName || val.name || fallbackName,
+          avatar: val.avatar || val.profileImage || fallbackPhoto || 'https://images.unsplash.com/photo-1535713875002?w=400&auto=format&fit=crop&q=80',
+          profileImage: val.profileImage || val.avatar || fallbackPhoto || 'https://images.unsplash.com/photo-1535713875002?w=400&auto=format&fit=crop&q=80',
+          coverImage: val.coverImage || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=1200&auto=format&fit=crop&q=80',
+          bio: val.bio || 'Member of 1Social Community.',
+          role: val.role || (uid === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3' ? 'admin' : 'user'),
+          status: val.status || 'active',
+          isVerified: val.isVerified !== undefined ? val.isVerified : (val.verified !== undefined ? val.verified : uid === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3'),
+          verified: val.verified !== undefined ? val.verified : (val.isVerified !== undefined ? val.isVerified : uid === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3'),
+          isBanned: !!val.isBanned,
+          followers: Array.isArray(val.followers) ? val.followers : [],
+          following: Array.isArray(val.following) ? val.following : [],
+          createdAt: val.createdAt || new Date().toISOString(),
         };
+        return loadedUser;
       }
     } catch (err) {
-      console.warn('[Firebase RTDB] Could not fetch profile for UID:', uid, err);
+      console.error(`[Firebase RTDB Read Error] Could not fetch profile for UID ${uid}:`, err);
     }
 
     const isAdmin = uid === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3';
+    const defaultAvatar = fallbackPhoto || (isAdmin
+      ? 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80'
+      : 'https://images.unsplash.com/photo-1535713875002?w=400&auto=format&fit=crop&q=80');
+
     const defaultUser: User = {
       id: uid,
+      uid: uid,
       email: fallbackEmail || (isAdmin ? 'soheltajbhola@gmail.com' : `${uid}@1social.com`),
-      password: '',
       username: isAdmin ? 'shoheltaj' : `user_${uid.slice(0, 6)}`,
-      usernameChangeCount: 0,
       fullName: fallbackName || (isAdmin ? 'Shohel Taj' : '1Social Member'),
-      fullNameBn: isAdmin ? 'সোহেল তাজ' : undefined,
-      fullNameEn: isAdmin ? 'Shohel Taj' : undefined,
-      avatar: fallbackPhoto || (isAdmin
-        ? 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80'
-        : 'https://images.unsplash.com/photo-1535713875002?w=400&auto=format&fit=crop&q=80'),
+      fullNameBn: isAdmin ? 'সোহেল তাজ' : (fallbackName || '1Social Member'),
+      fullNameEn: isAdmin ? 'Shohel Taj' : (fallbackName || '1Social Member'),
+      avatar: defaultAvatar,
+      profileImage: defaultAvatar,
       coverImage: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=1200&auto=format&fit=crop&q=80',
       bio: isAdmin
         ? 'Platform Lead & Creator. Building next-gen web applications and connecting communities across the globe 🚀'
@@ -296,43 +301,32 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       website: isAdmin ? 'https://techlystb.blogspot.com' : undefined,
       statusBadge: isAdmin ? '🛡️ Platform Admin' : undefined,
       role: isAdmin ? 'admin' : 'user',
+      status: 'active',
       isVerified: isAdmin,
-      isVip: isAdmin,
-      badge: isAdmin ? 'VIP' : undefined,
+      verified: isAdmin,
       isBanned: false,
       followers: [],
-      following: [],
+      following: isAdmin ? [] : ['UI28ofvzB7cjNJvCG0DvYgbCu9J3'],
       createdAt: new Date().toISOString(),
     };
 
     try {
       await firebaseService.saveUser(defaultUser);
     } catch (e) {
-      console.warn('Could not save defaultUser to Firestore:', e);
+      console.error(`[Firebase RTDB Write Error] Could not save defaultUser to path users/${uid}:`, e);
     }
 
     return defaultUser;
   };
 
-  // Fetch real users from Firestore on mount
+  // Fetch real users from Realtime Database on mount
   useEffect(() => {
-    firebaseService.getUsers().then((firestoreUsers) => {
-      if (firestoreUsers && firestoreUsers.length > 0) {
-        setUsers((prev) => {
-          const map = new Map<string, User>();
-          for (const u of firestoreUsers) {
-            map.set(u.id, u);
-          }
-          for (const u of prev) {
-            if (!map.has(u.id)) {
-              map.set(u.id, u);
-            }
-          }
-          return Array.from(map.values());
-        });
+    firebaseService.getUsers().then((rtdbUsers) => {
+      if (rtdbUsers && rtdbUsers.length > 0) {
+        setUsers(rtdbUsers);
       }
     }).catch((err) => {
-      console.warn('[Firebase] Could not fetch users from Firestore:', err);
+      console.error('[Firebase RTDB Error] Could not fetch users from database:', err);
     });
   }, []);
 
@@ -724,149 +718,90 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const clean = emailOrUsername.trim();
     const cleanLower = clean.toLowerCase();
 
-    const isEmail = clean.includes('@');
-    const isDemoAccount =
-      cleanLower === 'shohel@1social.com' ||
-      cleanLower === 'sarah.lens@creative.io' ||
-      cleanLower === 'rahim.voice@sound.org' ||
-      cleanLower === 'nusrat.art@gallery.bd' ||
-      cleanLower === 'tanvir.code@devzone.com' ||
-      cleanLower.endsWith('@1social.com') ||
-      !isEmail; // username login
-
-    // 1. Production Login with Firebase Authentication
-    if (isEmail && !isDemoAccount && password) {
-      try {
-        const cred = await signInWithEmailAndPassword(auth, clean, password);
-        const fbUser = cred.user;
-        const uid = fbUser.uid;
-
-        // Authoritative Single Admin check: UID must strictly match UI28ofvzB7cjNJvCG0DvYgbCu9J3
-        const isAdmin = uid === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3';
-        setIsFirebaseAdmin(isAdmin);
-
-        // Load profile from Firestore users/{uid}
-        const userProfile = await loadUserProfileFromFirebase(
-          uid,
-          fbUser.email || clean,
-          fbUser.displayName || undefined
-        );
-
-        setUsers((prev) => {
-          const filtered = prev.filter((u) => u.id !== uid && u.id !== 'user-admin');
-          return [userProfile, ...filtered];
-        });
-
-        setCurrentUserId(uid);
-        safeLocalStorageSet('vc_current_user_id', uid);
-        recordLoggedInUser(uid);
-
-        showToast(
-          lang === 'bn'
-            ? `স্বাগতম, ${userProfile.fullName}! ${isAdmin ? '(অ্যাডমিন ভেরিফাইড)' : ''}`
-            : `Welcome back, ${userProfile.fullName}! ${isAdmin ? '(Admin Verified)' : ''}`
-        );
-        setIsAuthModalOpen(false);
-        return true;
-      } catch (err: any) {
-        console.error('[Firebase Auth Error]', err.code, err.message);
-
-        let errorMsg = err.message || (lang === 'bn' ? 'লগইন ব্যর্থ হয়েছে।' : 'Login failed.');
-        if (err.code === 'auth/invalid-credential') {
-          errorMsg =
-            lang === 'bn'
-              ? 'ভুল ইমেইল বা পাসওয়ার্ড (auth/invalid-credential)।'
-              : 'Invalid email or password (auth/invalid-credential).';
-        } else if (err.code === 'auth/wrong-password') {
-          errorMsg =
-            lang === 'bn'
-              ? 'ভুল পাসওয়ার্ড (auth/wrong-password)।'
-              : 'Incorrect password (auth/wrong-password).';
-        } else if (err.code === 'auth/user-not-found') {
-          errorMsg =
-            lang === 'bn'
-              ? 'এই ইমেইলে কোনো অ্যাকাউন্ট পাওয়া যায়নি (auth/user-not-found)।'
-              : 'No account found with this email (auth/user-not-found).';
-        } else if (err.code === 'auth/too-many-requests') {
-          errorMsg =
-            lang === 'bn'
-              ? 'অতিরিক্ত চেষ্টার কারণে সাময়িকভাবে ব্লক করা হয়েছে (auth/too-many-requests)। কিছুক্ষণ পর আবার চেষ্টা করুন।'
-              : 'Access temporarily blocked due to many failed attempts (auth/too-many-requests). Please try again later.';
-        } else if (err.code === 'auth/invalid-email') {
-          errorMsg =
-            lang === 'bn'
-              ? 'অবৈধ ইমেইল ফরম্যাট (auth/invalid-email)।'
-              : 'Invalid email format (auth/invalid-email).';
-        } else if (err.code === 'auth/user-disabled') {
-          errorMsg =
-            lang === 'bn'
-              ? 'এই অ্যাকাউন্টটি নিষ্ক্রিয় করা হয়েছে (auth/user-disabled)।'
-              : 'This user account has been disabled (auth/user-disabled).';
-        }
-
-        showToast(errorMsg);
-        return false;
-      }
-    }
-
-    // 2. Demo / Mock Local Login (for demo testing and username preview)
-    const found = users.find(
-      (u) => u.email.toLowerCase() === cleanLower || u.username.toLowerCase() === cleanLower
-    );
-
-    if (found) {
-      if (found.isBanned) {
-        showToast(lang === 'bn' ? 'আপনার অ্যাকাউন্টটি স্থগিত (Banned) করা হয়েছে।' : 'Your account has been banned.');
-        return false;
-      }
-      if (password && found.password && found.password !== password) {
-        showToast(lang === 'bn' ? 'ভুল পাসওয়ার্ড! দয়া করে সঠিক পাসওয়ার্ড দিন।' : 'Incorrect password! Please try again.');
-        return false;
-      }
-      setCurrentUserId(found.id);
-      safeLocalStorageSet('vc_current_user_id', found.id);
-      recordLoggedInUser(found.id);
-      showToast(lang === 'bn' ? `স্বাগতম, ${found.fullName}!` : `Welcome back, ${found.fullName}!`);
-      setIsAuthModalOpen(false);
-      return true;
-    }
-
-    // If an unknown email was provided without password
-    if (isEmail) {
-      showToast(
-        lang === 'bn'
-          ? 'এই অ্যাকাউন্টে লগইন করতে পাসওয়ার্ড দিন অথবা সাইন আপ করুন।'
-          : 'Please provide password to log in or register a new account.'
-      );
+    if (!clean) {
+      showToast(lang === 'bn' ? 'ইমেইল অথবা ইউজারনেম দিন।' : 'Please enter email or username.');
       return false;
     }
 
-    // Auto demo guest account for local quick username
-    const newUsername = cleanLower.replace(/[^a-zA-Z0-9_]/g, '_');
-    const newUser: User = {
-      id: `user-${Date.now()}`,
-      email: `${newUsername}@1social.com`,
-      password: password || 'password123',
-      username: newUsername,
-      usernameChangeCount: 0,
-      fullName: newUsername.replace(/_/g, ' ').toUpperCase(),
-      avatar: `https://images.unsplash.com/photo-1535713875002 + Math.floor(Math.random() * 100)}?w=400&auto=format&fit=crop&q=80`,
-      coverImage: 'https://images.unsplash.com/photo-1579546929518-9e396f3cc809?w=1200&auto=format&fit=crop&q=80',
-      bio: 'New explorer on the platform! Hello world ✨',
-      role: 'user',
-      isVerified: false,
-      isBanned: false,
-      followers: [],
-      following: ['user-admin'],
-      createdAt: new Date().toISOString(),
-    };
-    setUsers((prev) => [newUser, ...prev]);
-    setCurrentUserId(newUser.id);
-    safeLocalStorageSet('vc_current_user_id', newUser.id);
-    recordLoggedInUser(newUser.id);
-    showToast(lang === 'bn' ? 'অ্যাকাউন্ট সফলভাবে তৈরি হয়েছে!' : 'Account created successfully!');
-    setIsAuthModalOpen(false);
-    return true;
+    if (!password) {
+      showToast(lang === 'bn' ? 'পাসওয়ার্ড দিন।' : 'Please enter password.');
+      return false;
+    }
+
+    let targetEmail = clean;
+    if (!clean.includes('@')) {
+      const foundUser = users.find((u) => u.username?.toLowerCase() === cleanLower.replace(/^@/, ''));
+      if (foundUser && foundUser.email) {
+        targetEmail = foundUser.email;
+      }
+    }
+
+    try {
+      const cred = await signInWithEmailAndPassword(auth, targetEmail, password);
+      const fbUser = cred.user;
+      const uid = fbUser.uid;
+
+      // Single Admin check: UID must strictly match UI28ofvzB7cjNJvCG0DvYgbCu9J3
+      const isAdmin = uid === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3';
+      setIsFirebaseAdmin(isAdmin);
+
+      // Load profile from Realtime Database users/{uid}
+      const userProfile = await loadUserProfileFromFirebase(
+        uid,
+        fbUser.email || targetEmail,
+        fbUser.displayName || undefined
+      );
+
+      setUsers((prev) => {
+        const filtered = prev.filter((u) => u.id !== uid);
+        return [userProfile, ...filtered];
+      });
+
+      setCurrentUserId(uid);
+      safeLocalStorageSet('vc_current_user_id', uid);
+      recordLoggedInUser(uid);
+
+      showToast(
+        lang === 'bn'
+          ? `স্বাগতম, ${userProfile.fullName}! ${isAdmin ? '(অ্যাডমিন ভেরিফাইড)' : ''}`
+          : `Welcome back, ${userProfile.fullName}! ${isAdmin ? '(Admin Verified)' : ''}`
+      );
+      setIsAuthModalOpen(false);
+      return true;
+    } catch (err: any) {
+      console.error('[Firebase Auth Error]', err.code, err.message);
+
+      let errorMsg = err.message || (lang === 'bn' ? 'লগইন ব্যর্থ হয়েছে।' : 'Login failed.');
+      if (err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password') {
+        errorMsg =
+          lang === 'bn'
+            ? 'ভুল ইমেইল/ইউজারনেম বা পাসওয়ার্ড।'
+            : 'Invalid email/username or password.';
+      } else if (err.code === 'auth/user-not-found') {
+        errorMsg =
+          lang === 'bn'
+            ? 'এই তথ্যে কোনো অ্যাকাউন্ট পাওয়া যায়নি।'
+            : 'No account found with these credentials.';
+      } else if (err.code === 'auth/too-many-requests') {
+        errorMsg =
+          lang === 'bn'
+            ? 'অতিরিক্ত চেষ্টার কারণে সাময়িকভাবে ব্লক করা হয়েছে। কিছুক্ষণ পর আবার চেষ্টা করুন।'
+            : 'Access temporarily blocked due to many failed attempts. Please try again later.';
+      } else if (err.code === 'auth/invalid-email') {
+        errorMsg =
+          lang === 'bn'
+            ? 'অবৈধ ইমেইল ঠিকানা।'
+            : 'Invalid email format.';
+      } else if (err.code === 'auth/user-disabled') {
+        errorMsg =
+          lang === 'bn'
+            ? 'এই অ্যাকাউন্টটি নিষ্ক্রিয় করা হয়েছে।'
+            : 'This user account has been disabled.';
+      }
+
+      showToast(errorMsg);
+      return false;
+    }
   };
 
   const register = async (email: string, username: string, fullName: string, password?: string): Promise<boolean> => {
@@ -914,56 +849,62 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       return false;
     }
 
+    let cred;
     try {
-      let uid = `user-${Date.now()}`;
-      try {
-        const cred = await createUserWithEmailAndPassword(auth, cleanEmail, cleanPassword);
-        uid = cred.user.uid;
-      } catch (authErr: any) {
-        console.warn('Firebase Auth registration warning, falling back to local ID:', authErr);
-        if (authErr?.code === 'auth/email-already-in-use') {
-          showToast(lang === 'bn' ? 'এই ইমেইলটি ইতিমধ্যে নিবন্ধিত আছে।' : 'Email already in use.');
-          return false;
-        }
+      cred = await createUserWithEmailAndPassword(auth, cleanEmail, cleanPassword);
+    } catch (authErr: any) {
+      console.error('[Firebase Auth Registration Error]', authErr?.code, authErr?.message);
+      let errorMsg = authErr?.message || (lang === 'bn' ? 'নিবন্ধন ব্যর্থ হয়েছে।' : 'Registration failed.');
+      if (authErr?.code === 'auth/email-already-in-use') {
+        errorMsg = lang === 'bn' ? 'এই ইমেইলটি ইতিমধ্যে নিবন্ধিত আছে।' : 'Email already in use.';
+      } else if (authErr?.code === 'auth/weak-password') {
+        errorMsg = lang === 'bn' ? 'পাসওয়ার্ড অত্যন্ত দুর্বল। অন্তত ৬ অক্ষরের দিন।' : 'Password is too weak. Must be at least 6 characters.';
+      } else if (authErr?.code === 'auth/invalid-email') {
+        errorMsg = lang === 'bn' ? 'অকার্যকর ইমেইল ঠিকানা।' : 'Invalid email address.';
       }
-
-      const newUser: User = {
-        id: uid,
-        email: cleanEmail,
-        password: cleanPassword,
-        username: cleanUsername,
-        usernameChangeCount: 0,
-        fullName: trimmedFullName,
-        fullNameBn: trimmedFullName,
-        fullNameEn: trimmedFullName,
-        avatar: `https://images.unsplash.com/photo-${1535713875002 + Math.floor(Math.random() * 100)}?w=400&auto=format&fit=crop&q=80`,
-        coverImage: 'https://images.unsplash.com/photo-1579546929518-9e396f3cc809?w=1200&auto=format&fit=crop&q=80',
-        bio: 'Excited to connect and share moments here! 🌟',
-        role: 'user',
-        isVerified: false,
-        isBanned: false,
-        followers: [],
-        following: ['UI28ofvzB7cjNJvCG0DvYgbCu9J3'],
-        createdAt: new Date().toISOString(),
-      };
-
-      setUsers((prev) => [newUser, ...prev]);
-      const savedOk = await firebaseService.saveUser(newUser);
-      if (!savedOk) {
-        console.error(`[Registration RTDB Error] Failed to write user profile to path users/${uid}`);
-      }
-
-      setCurrentUserId(uid);
-      safeLocalStorageSet('vc_current_user_id', uid);
-      recordLoggedInUser(uid);
-      showToast(lang === 'bn' ? `স্বাগতম ${trimmedFullName}! অ্যাকাউন্ট তৈরি সম্পন্ন।` : `Welcome ${trimmedFullName}! Account created.`);
-      setIsAuthModalOpen(false);
-      return true;
-    } catch (err: any) {
-      console.error('Registration error:', err);
-      showToast(err?.message || (lang === 'bn' ? 'নিবন্ধন ব্যর্থ হয়েছে।' : 'Registration failed.'));
+      showToast(errorMsg);
       return false;
     }
+
+    const uid = cred.user.uid;
+    const defaultAvatar = 'https://images.unsplash.com/photo-1535713875002?w=400&auto=format&fit=crop&q=80';
+    const defaultCover = 'https://images.unsplash.com/photo-1579546929518-9e396f3cc809?w=1200&auto=format&fit=crop&q=80';
+
+    const newUser: User = {
+      id: uid,
+      uid: uid,
+      email: cleanEmail,
+      username: cleanUsername,
+      name: trimmedFullName,
+      fullName: trimmedFullName,
+      fullNameBn: trimmedFullName,
+      fullNameEn: trimmedFullName,
+      avatar: defaultAvatar,
+      profileImage: defaultAvatar,
+      coverImage: defaultCover,
+      bio: 'Excited to connect and share moments here! 🌟',
+      role: 'user',
+      status: 'active',
+      isVerified: false,
+      verified: false,
+      isBanned: false,
+      followers: [],
+      following: ['UI28ofvzB7cjNJvCG0DvYgbCu9J3'],
+      createdAt: new Date().toISOString(),
+    };
+
+    setUsers((prev) => [newUser, ...prev.filter((u) => u.id !== uid)]);
+    const savedOk = await firebaseService.saveUser(newUser);
+    if (!savedOk) {
+      console.error(`[Firebase RTDB Write Error] Failed to write user profile to path users/${uid}`);
+    }
+
+    setCurrentUserId(uid);
+    safeLocalStorageSet('vc_current_user_id', uid);
+    recordLoggedInUser(uid);
+    showToast(lang === 'bn' ? `স্বাগতম ${trimmedFullName}! অ্যাকাউন্ট তৈরি সম্পন্ন।` : `Welcome ${trimmedFullName}! Account created.`);
+    setIsAuthModalOpen(false);
+    return true;
   };
 
   const logout = () => {
