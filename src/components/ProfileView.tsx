@@ -756,7 +756,7 @@ export const ProfileView: React.FC = () => {
       {/* MODAL: Verify & VIP Application */}
       {isVerificationModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/60 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-3xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 shadow-2xl p-6 space-y-4">
+          <div className="w-full max-w-md rounded-2xl sm:rounded-3xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 shadow-2xl p-5 space-y-4 max-h-[85vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-neutral-100 dark:border-neutral-800">
               <h3 className="font-bold text-base text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
                 <Crown className="w-5 h-5 text-amber-500" />
@@ -869,9 +869,9 @@ export const ProfileView: React.FC = () => {
       {/* Edit Profile Modal (Includes Username Limit, 10 Links, and Email/Password) */}
       {isEditModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/60 backdrop-blur-sm">
-          <div className="w-full max-w-lg rounded-3xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 shadow-2xl p-5 overflow-y-auto max-h-[92vh] space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-neutral-100 dark:border-neutral-800">
-              <h3 className="font-bold text-base text-neutral-900 dark:text-neutral-100">
+          <div className="w-full max-w-md sm:max-w-lg rounded-2xl sm:rounded-3xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 shadow-2xl p-4 sm:p-5 flex flex-col max-h-[82vh] overflow-hidden">
+            <div className="flex items-center justify-between pb-3 border-b border-neutral-100 dark:border-neutral-800 shrink-0">
+              <h3 className="font-bold text-sm sm:text-base text-neutral-900 dark:text-neutral-100">
                 {lang === 'bn' ? 'প্রোফাইল কাস্টমাইজেশন' : 'Customize Profile'}
               </h3>
               <button
@@ -882,7 +882,8 @@ export const ProfileView: React.FC = () => {
               </button>
             </div>
 
-            <form onSubmit={handleSaveProfile} className="space-y-4">
+            <form onSubmit={handleSaveProfile} className="flex flex-col flex-1 min-h-0 overflow-hidden pt-2">
+              <div className="flex-1 overflow-y-auto pr-1 sm:pr-2 space-y-4">
               {/* Avatar and Cover previews */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -1118,25 +1119,26 @@ export const ProfileView: React.FC = () => {
                   </div>
                 </div>
               </div>
+            </div>
 
-              {/* Action buttons */}
-              <div className="flex items-center justify-end gap-2 pt-2 border-t border-neutral-100 dark:border-neutral-800">
-                <button
-                  type="button"
-                  onClick={() => setIsEditModalOpen(false)}
-                  className="px-4 py-2 rounded-xl text-xs text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800"
-                >
-                  {lang === 'bn' ? 'বাতিল' : 'Cancel'}
-                </button>
-                <button
-                  type="submit"
-                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm"
-                >
-                  <Check className="w-3.5 h-3.5" />
-                  <span>{lang === 'bn' ? 'পরিবর্তন সংরক্ষণ করুন' : 'Save Changes'}</span>
-                </button>
-              </div>
-            </form>
+            {/* Action buttons - Pinned at bottom and always visible */}
+            <div className="flex items-center justify-end gap-2 pt-3 mt-2 border-t border-neutral-100 dark:border-neutral-800 bg-white dark:bg-neutral-900 shrink-0">
+              <button
+                type="button"
+                onClick={() => setIsEditModalOpen(false)}
+                className="px-4 py-2 rounded-xl text-xs font-semibold text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+              >
+                {lang === 'bn' ? 'বাতিল' : 'Cancel'}
+              </button>
+              <button
+                type="submit"
+                className="flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-md shadow-indigo-500/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
+              >
+                <Check className="w-4 h-4" />
+                <span>{lang === 'bn' ? 'পরিবর্তন সংরক্ষণ করুন' : 'Save Changes'}</span>
+              </button>
+            </div>
+          </form>
           </div>
         </div>
       )}

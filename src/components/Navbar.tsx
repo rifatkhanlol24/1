@@ -17,6 +17,7 @@ import {
   MessageCircle,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import { User } from '../types';
 
 export const Navbar: React.FC = () => {
   const {
@@ -27,6 +28,7 @@ export const Navbar: React.FC = () => {
     loggedInUserIds,
     conversations,
     switchUser,
+    removeLoggedInAccount,
     activeTab,
     setActiveTab,
     searchQuery,
@@ -66,29 +68,30 @@ export const Navbar: React.FC = () => {
   );
 
   // User request:
-  // "এখানে এত থাকা যাবে না লগইন অপশনে মাল্টিপল অ্যাকাউন্ট থাকবে তবে যে কয়টি অ্যাকাউন্ট লগইন করা হয়েছে এবং মেসেজে যাদের সাথে তথ্য আদান-প্রদান হয়েছে তাদেরকেই দেখা যাবে ।"
+  // "২) যে কয়টি অ্যাকাউন্ট লগইন করা আছে দ্বিতীয় স্ক্রিনশটে ওই কয়টাই দেখাবে ।"
+  // Strictly only show accounts that are actually logged in on this device (no chat partners, deduplicated)
   const switchableUsers = useMemo(() => {
-    // 1. Identify users with whom message exchange/conversation has taken place
-    const chatPartnerIds = new Set<string>();
-    conversations.forEach((conv) => {
-      if (conv.participantIds.includes(currentUser?.id || '')) {
-        conv.participantIds.forEach((pid) => {
-          if (pid !== currentUser?.id) {
-            chatPartnerIds.add(pid);
-          }
-        });
-      }
-    });
+    const targetIds = Array.from(
+      new Set([...(currentUser ? [currentUser.id] : []), ...loggedInUserIds])
+    );
+    const seenEmails = new Set<string>();
+    const seenUsernames = new Set<string>();
+    const result: User[] = [];
 
-    // 2. Filter users to only those logged in on this device, or chat partners, or current user
-    return users.filter((u) => {
-      if (u.isBot || u.fullName.includes('AI Booster')) return false;
-      const isCurrent = u.id === currentUser?.id;
-      const isLoggedIn = loggedInUserIds.includes(u.id);
-      const isChatPartner = chatPartnerIds.has(u.id);
-      return isCurrent || isLoggedIn || isChatPartner;
-    });
-  }, [users, loggedInUserIds, conversations, currentUser?.id]);
+    for (const uid of targetIds) {
+      const u = users.find((user) => user.id === uid);
+      if (u && !u.isBot && !u.fullName?.includes('AI Booster')) {
+        const emailKey = (u.email || '').toLowerCase().trim();
+        const usernameKey = (u.username || '').toLowerCase().trim();
+        if (emailKey && seenEmails.has(emailKey)) continue;
+        if (usernameKey && seenUsernames.has(usernameKey)) continue;
+        if (emailKey) seenEmails.add(emailKey);
+        if (usernameKey) seenUsernames.add(usernameKey);
+        result.push(u);
+      }
+    }
+    return result;
+  }, [users, loggedInUserIds, currentUser]);
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-neutral-200 dark:border-neutral-800 bg-white/90 dark:bg-neutral-900/90 backdrop-blur-md transition-colors">
@@ -434,17 +437,12 @@ export const Navbar: React.FC = () => {
                                 </span>
                               )}
                               {isCurrent ? (
-                                <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 font-semibold">
+                                <span className="text-[9px] px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 font-semibold">
                                   {lang === 'bn' ? 'সক্রিয়' : 'Active'}
                                 </span>
-                              ) : isLoggedIn ? (
-                                <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-neutral-100 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-300 font-medium">
-                                  {lang === 'bn' ? 'লগইনকৃত' : 'Logged in'}
-                                </span>
                               ) : (
-                                <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-sky-100 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400 font-medium flex items-center gap-0.5">
-                                  <MessageCircle className="w-2.5 h-2.5" />
-                                  {lang === 'bn' ? 'মেসেজ' : 'Chat'}
+                                <span className="text-[9px] px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 font-semibold">
+                                  {lang === 'bn' ? 'স্যুইচ করুন' : 'Switch'}
                                 </span>
                               )}
                             </div>

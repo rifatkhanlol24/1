@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Sparkles,
   Lock,
@@ -25,6 +25,8 @@ export const AuthGateScreen: React.FC = () => {
   const {
     login,
     register,
+    users,
+    loggedInUserIds,
     resetPasswordByUsernameOrEmail,
     darkMode,
     toggleDarkMode,
@@ -34,6 +36,27 @@ export const AuthGateScreen: React.FC = () => {
   } = useApp();
 
   const [mode, setMode] = useState<'login' | 'register' | 'forgot'>('login');
+
+  // Filter only accounts that are actually logged in on this device (deduplicated)
+  const loggedInAccounts = useMemo(() => {
+    const seenEmails = new Set<string>();
+    const seenUsernames = new Set<string>();
+    const result: typeof users = [];
+
+    for (const uid of loggedInUserIds) {
+      const u = users.find((user) => user.id === uid);
+      if (u && !u.isBot && !u.fullName?.includes('AI Booster')) {
+        const emailKey = (u.email || '').toLowerCase().trim();
+        const usernameKey = (u.username || '').toLowerCase().trim();
+        if (emailKey && seenEmails.has(emailKey)) continue;
+        if (usernameKey && seenUsernames.has(usernameKey)) continue;
+        if (emailKey) seenEmails.add(emailKey);
+        if (usernameKey) seenUsernames.add(usernameKey);
+        result.push(u);
+      }
+    }
+    return result;
+  }, [users, loggedInUserIds]);
 
   // Form Fields
   const [emailOrUsername, setEmailOrUsername] = useState('');
@@ -104,14 +127,6 @@ export const AuthGateScreen: React.FC = () => {
         setMode('login');
       }
     }, 400);
-  };
-
-  const handleDemoLogin = (email: string) => {
-    setIsLoading(true);
-    setTimeout(() => {
-      login(email, 'password123');
-      setIsLoading(false);
-    }, 300);
   };
 
   return (
@@ -223,7 +238,7 @@ export const AuthGateScreen: React.FC = () => {
                   <span>{lang === 'bn' ? 'সুরক্ষিত অ্যাডমিন' : 'Admin Protected'}</span>
                 </div>
                 <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-1">
-                  {lang === 'bn' ? 'soheltajbhola@gmail.com' : 'Default Super Admin'}
+                  {lang === 'bn' ? 'অ্যাডমিন সিকিউরড' : 'Admin Protected'}
                 </p>
               </div>
             </div>
@@ -289,7 +304,7 @@ export const AuthGateScreen: React.FC = () => {
                         required
                         value={emailOrUsername}
                         onChange={(e) => setEmailOrUsername(e.target.value)}
-                        placeholder="soheltajbhola@gmail.com / @username"
+                        placeholder="your email address"
                         className="w-full pl-10 pr-3 py-2.5 text-xs rounded-xl bg-neutral-50 dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:border-indigo-500"
                       />
                     </div>
@@ -440,7 +455,7 @@ export const AuthGateScreen: React.FC = () => {
                         required
                         value={resetIdentifier}
                         onChange={(e) => setResetIdentifier(e.target.value)}
-                        placeholder="soheltajbhola@gmail.com / @username"
+                        placeholder="your email address"
                         className="w-full pl-10 pr-3 py-2.5 text-xs rounded-xl bg-neutral-50 dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:border-indigo-500"
                       />
                     </div>
@@ -482,109 +497,65 @@ export const AuthGateScreen: React.FC = () => {
                 </form>
               )}
 
-              {/* 1-Click Instant Demo Login Selector */}
-              <div className="pt-4 border-t border-neutral-100 dark:border-neutral-800 space-y-2">
-                <div className="flex items-center justify-between">
-                  <p className="text-[11px] font-bold text-neutral-400 uppercase tracking-wider">
-                    {lang === 'bn' ? '১-ক্লিক ডেমো অ্যাকাউন্ট দিয়ে তাৎক্ষণিক প্রবেশ:' : '1-Click Instant Demo Logins:'}
-                  </p>
+              {/* Only show accounts that are actually logged in on this device */}
+              {loggedInAccounts.length > 0 && (
+                <div className="pt-4 border-t border-neutral-100 dark:border-neutral-800 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <p className="text-[11px] font-bold text-neutral-400 uppercase tracking-wider">
+                      {lang === 'bn' ? 'লগইনকৃত অ্যাকাউন্ট:' : 'Logged in accounts:'}
+                    </p>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 font-bold">
+                      {loggedInAccounts.length}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-2">
+                    {loggedInAccounts.map((acc) => (
+                      <button
+                        key={acc.id}
+                        type="button"
+                        onClick={() => login(acc.email, acc.password)}
+                        className="flex items-center justify-between p-2.5 rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-800/50 hover:bg-indigo-50/50 dark:hover:bg-neutral-800 transition-all text-left group"
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <img
+                            src={acc.avatar}
+                            alt={acc.fullName}
+                            className="w-8 h-8 rounded-xl object-cover shrink-0 border border-neutral-200 dark:border-neutral-700"
+                          />
+                          <div className="truncate">
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-semibold text-neutral-900 dark:text-neutral-100 text-xs">
+                                {acc.fullName}
+                              </span>
+                              {acc.role === 'admin' && (
+                                <span className="text-[9px] px-1.5 py-0.2 rounded bg-amber-200 dark:bg-amber-800 text-amber-900 dark:text-amber-100 font-extrabold uppercase">
+                                  Admin
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-[10px] text-neutral-400 truncate">
+                              {acc.email}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1 text-xs text-indigo-600 dark:text-indigo-400 font-semibold shrink-0 ml-1">
+                          <span>{lang === 'bn' ? 'প্রবেশ করুন' : 'Sign in'}</span>
+                          <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+                        </div>
+                      </button>
+                    ))}
+                  </div>
                 </div>
-
-                <div className="grid grid-cols-1 gap-2">
-                  {/* Default Super Admin Card */}
-                  <button
-                    type="button"
-                    onClick={() => handleDemoLogin('soheltajbhola@gmail.com')}
-                    className="flex items-center justify-between p-2.5 rounded-2xl border border-amber-300 dark:border-amber-700/60 bg-amber-50/70 dark:bg-amber-950/40 text-xs hover:bg-amber-100/80 dark:hover:bg-amber-950/70 transition-all text-left group"
-                  >
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <div className="w-7 h-7 rounded-xl bg-amber-500 flex items-center justify-center text-white shrink-0 shadow-xs">
-                        <ShieldCheck className="w-4 h-4" />
-                      </div>
-                      <div className="truncate">
-                        <div className="flex items-center gap-1.5">
-                          <span className="font-bold text-neutral-900 dark:text-neutral-100">
-                            Sohel Taj
-                          </span>
-                          <span className="text-[9px] px-1.5 py-0.2 rounded bg-amber-200 dark:bg-amber-800 text-amber-900 dark:text-amber-100 font-extrabold uppercase">
-                            Admin
-                          </span>
-                        </div>
-                        <p className="text-[10px] font-mono text-amber-700 dark:text-amber-300 truncate">
-                          soheltajbhola@gmail.com
-                        </p>
-                      </div>
-                    </div>
-                    <ArrowRight className="w-4 h-4 text-amber-600 dark:text-amber-400 group-hover:translate-x-1 transition-transform shrink-0" />
-                  </button>
-
-                  {/* Regular User 1 */}
-                  <button
-                    type="button"
-                    onClick={() => handleDemoLogin('sarah.lens@creative.io')}
-                    className="flex items-center justify-between p-2 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-800/50 text-xs hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-all text-left group"
-                  >
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <img
-                        src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&auto=format&fit=crop&q=80"
-                        alt="Sarah"
-                        className="w-7 h-7 rounded-xl object-cover shrink-0"
-                      />
-                      <div className="truncate">
-                        <div className="flex items-center gap-1.5">
-                          <span className="font-semibold text-neutral-900 dark:text-neutral-100">
-                            Sarah Rahman
-                          </span>
-                          <span className="text-[9px] px-1.5 py-0.2 rounded bg-neutral-200 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-300 font-medium">
-                            User
-                          </span>
-                        </div>
-                        <p className="text-[10px] text-neutral-400 truncate">
-                          sarah.lens@creative.io
-                        </p>
-                      </div>
-                    </div>
-                    <ArrowRight className="w-3.5 h-3.5 text-neutral-400 group-hover:translate-x-1 transition-transform shrink-0" />
-                  </button>
-
-                  {/* Regular User 2 */}
-                  <button
-                    type="button"
-                    onClick={() => handleDemoLogin('tanvir.dev@tech.co')}
-                    className="flex items-center justify-between p-2 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-800/50 text-xs hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-all text-left group"
-                  >
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <img
-                        src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&auto=format&fit=crop&q=80"
-                        alt="Tanvir"
-                        className="w-7 h-7 rounded-xl object-cover shrink-0"
-                      />
-                      <div className="truncate">
-                        <div className="flex items-center gap-1.5">
-                          <span className="font-semibold text-neutral-900 dark:text-neutral-100">
-                            Tanvir Ahmed
-                          </span>
-                          <span className="text-[9px] px-1.5 py-0.2 rounded bg-neutral-200 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-300 font-medium">
-                            User
-                          </span>
-                        </div>
-                        <p className="text-[10px] text-neutral-400 truncate">
-                          tanvir.dev@tech.co
-                        </p>
-                      </div>
-                    </div>
-                    <ArrowRight className="w-3.5 h-3.5 text-neutral-400 group-hover:translate-x-1 transition-transform shrink-0" />
-                  </button>
-                </div>
-              </div>
+              )}
 
               {/* Security Policy Reminder */}
               <div className="p-3 rounded-2xl bg-indigo-50/50 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-900/40 text-[11px] text-neutral-600 dark:text-neutral-400 flex items-start gap-2">
                 <ShieldAlert className="w-4 h-4 text-indigo-500 shrink-0 mt-0.5" />
                 <p className="leading-tight">
                   {lang === 'bn'
-                    ? '🔒 শুধুমাত্র soheltajbhola@gmail.com অথবা তার দ্বারা অনুমোদিত অ্যাডমিনরাই অ্যাডমিন প্যানেল অ্যাক্সেস করতে পারেন।'
-                    : '🔒 Only soheltajbhola@gmail.com or admin-authorized users can access the Admin Panel.'}
+                    ? '🔒 শুধুমাত্র অনুমোদিত অ্যাডমিনরাই অ্যাডমিন প্যানেল অ্যাক্সেস করতে পারেন।'
+                    : '🔒 Only authorized administrators can access the Admin Panel.'}
                 </p>
               </div>
 

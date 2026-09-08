@@ -36,6 +36,7 @@ interface AppContextType {
   users: User[];
   loggedInUserIds: string[];
   recordLoggedInUser: (uid: string) => void;
+  removeLoggedInAccount: (userId: string) => void;
   login: (emailOrUsername: string, password?: string) => boolean;
   register: (email: string, username: string, fullName: string, password?: string) => boolean;
   logout: () => void;
@@ -201,7 +202,23 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         list = [INITIAL_USERS[0], ...list];
       }
       // Upgrade and sanitize every user to unique bilingual Bengali & English names
-      return list.map(sanitizeUserToBilingual);
+      const sanitized = list.map(sanitizeUserToBilingual);
+      // Strict deduplication by email and username so no duplicated user accounts exist
+      const seen = new Set<string>();
+      const deduped: User[] = [];
+      for (const u of sanitized) {
+        const emailKey = (u.email || '').trim().toLowerCase();
+        const usernameKey = (u.username || '').trim().toLowerCase();
+        const idKey = u.id || '';
+        if (emailKey && seen.has(`e:${emailKey}`)) continue;
+        if (usernameKey && seen.has(`u:${usernameKey}`)) continue;
+        if (idKey && seen.has(`id:${idKey}`)) continue;
+        if (emailKey) seen.add(`e:${emailKey}`);
+        if (usernameKey) seen.add(`u:${usernameKey}`);
+        if (idKey) seen.add(`id:${idKey}`);
+        deduped.push(u);
+      }
+      return deduped;
     } catch {
       return INITIAL_USERS.map(sanitizeUserToBilingual);
     }
@@ -225,6 +242,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       safeLocalStorageSet('vc_logged_in_users', JSON.stringify(next));
       return next;
     });
+  };
+
+  const removeLoggedInAccount = (uid: string) => {
+    setLoggedInUserIds((prev) => {
+      const next = prev.filter((id) => id !== uid);
+      safeLocalStorageSet('vc_logged_in_users', JSON.stringify(next));
+      return next;
+    });
+    if (currentUserId === uid) {
+      logout();
+    }
   };
 
   const [currentUserId, setCurrentUserId] = useState<string | null>(() => {
@@ -1499,6 +1527,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         users,
         loggedInUserIds,
         recordLoggedInUser,
+        removeLoggedInAccount,
         login,
         register,
         logout,

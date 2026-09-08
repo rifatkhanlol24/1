@@ -281,8 +281,8 @@ export const AdminPanel: React.FC = () => {
         </h2>
         <p className="text-xs sm:text-sm text-neutral-600 dark:text-neutral-400 leading-relaxed max-w-md mx-auto">
           {lang === 'bn'
-            ? 'শুধুমাত্র প্ল্যাটফর্ম অ্যাডমিন (soheltajbhola@gmail.com) অথবা অ্যাডমিন কর্তৃক অনুমতিপ্রাপ্ত ব্যবহারকারীগণই অ্যাডমিন প্যানেল অ্যাক্সেস করতে পারেন।'
-            : 'Only platform administrator (soheltajbhola@gmail.com) or users granted Admin role by an administrator can access this panel.'}
+            ? 'শুধুমাত্র প্ল্যাটফর্ম অ্যাডমিন অথবা অ্যাডমিন কর্তৃক অনুমতিপ্রাপ্ত ব্যবহারকারীগণই অ্যাডমিন প্যানেল অ্যাক্সেস করতে পারেন।'
+            : 'Only platform administrators or users granted the Admin role can access this panel.'}
         </p>
         <div className="p-3 rounded-2xl bg-neutral-50 dark:bg-neutral-800/60 border border-neutral-200 dark:border-neutral-700/60 text-xs text-neutral-500 max-w-sm mx-auto">
           <p className="font-mono text-[11px]">

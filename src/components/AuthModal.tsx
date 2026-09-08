@@ -145,7 +145,7 @@ export const AuthModal: React.FC = () => {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="name@example.com"
+                placeholder="your email address"
                 className="w-full pl-9 pr-3 py-2 text-xs rounded-xl bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:border-indigo-500"
               />
             </div>
@@ -180,48 +180,6 @@ export const AuthModal: React.FC = () => {
             </span>
           </button>
         </form>
-
-        {/* 1-Click Demo Accounts Quick Switch */}
-        <div className="pt-3 border-t border-neutral-100 dark:border-neutral-800">
-          <p className="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider mb-2">
-            {lang === 'bn' ? '১-ক্লিক ডেমো অ্যাকাউন্ট দিয়ে তাৎক্ষণিক পরীক্ষা:' : '1-Click Instant Demo Login:'}
-          </p>
-          <div className="grid grid-cols-1 gap-1.5">
-            <button
-              onClick={() => {
-                login('rifatkhanlol24@gmail.com');
-              }}
-              className="flex items-center justify-between p-2 rounded-xl border border-purple-200 dark:border-purple-800/60 bg-purple-50/50 dark:bg-purple-950/30 text-xs hover:bg-purple-100 transition-colors"
-            >
-              <div className="flex items-center gap-2">
-                <ShieldCheck className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-                <span className="font-semibold text-neutral-900 dark:text-neutral-100">
-                  Rifat Khan (Admin)
-                </span>
-              </div>
-              <span className="text-[10px] font-mono text-purple-600 dark:text-purple-400">
-                rifatkhanlol24@gmail.com
-              </span>
-            </button>
-
-            <button
-              onClick={() => {
-                login('sarah.lens@creative.io');
-              }}
-              className="flex items-center justify-between p-2 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-800/40 text-xs hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
-            >
-              <div className="flex items-center gap-2">
-                <Camera className="w-4 h-4 text-indigo-500" />
-                <span className="font-semibold text-neutral-900 dark:text-neutral-100">
-                  Sarah Rahman (Photographer)
-                </span>
-              </div>
-              <span className="text-[10px] font-mono text-neutral-500">
-                sarah.lens@creative.io
-              </span>
-            </button>
-          </div>
-        </div>
       </div>
     </div>
   );
