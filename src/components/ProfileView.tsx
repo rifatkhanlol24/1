@@ -951,11 +951,11 @@ export const ProfileView: React.FC = () => {
                   type="text"
                   value={editUsername}
                   onChange={(e) => setEditUsername(e.target.value)}
-                  disabled={(profileUser.usernameChangeCount || 0) >= 10 && profileUser.role !== 'admin'}
+                  disabled={(profileUser.usernameChangeCount || 0) >= 10 && !isAdmin}
                   className="w-full text-xs p-2.5 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100 disabled:opacity-60 disabled:cursor-not-allowed"
                   required
                 />
-                {(profileUser.usernameChangeCount || 0) >= 10 && profileUser.role !== 'admin' ? (
+                {(profileUser.usernameChangeCount || 0) >= 10 && !isAdmin ? (
                   <p className="text-[11px] text-rose-500 font-medium">
                     ⚠️ {lang === 'bn' ? '১০ বার ইউজারনেম পরিবর্তনের সর্বোচ্চ সীমা অতিক্রম করেছেন।' : 'Maximum 10 username change limit reached.'}
                   </p>

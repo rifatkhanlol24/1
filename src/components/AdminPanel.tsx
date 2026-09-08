@@ -72,21 +72,11 @@ export const AdminPanel: React.FC = () => {
 
   useEffect(() => {
     const auth = getAuth(app);
-    const db = getFirestore(app);
 
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        try {
-          const adminDoc = await getDoc(doc(db, 'admins', user.uid));
-          if (adminDoc.exists() && adminDoc.data().role === 'admin') {
-            setIsAdminVerified(true);
-          } else {
-            setIsAdminVerified(false);
-          }
-        } catch (err) {
-          console.error("Error verifying admin:", err);
-          setIsAdminVerified(false);
-        }
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      // Authoritative Single Admin check: UID must strictly match UI28ofvzB7cjNJvCG0DvYgbCu9J3
+      if (user && user.uid === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3') {
+        setIsAdminVerified(true);
       } else {
         setIsAdminVerified(false);
       }
@@ -650,21 +640,14 @@ export const AdminPanel: React.FC = () => {
                     </td>
                     <td className="p-3.5">
                       <select
-                        value={u.role}
+                        value={u.role === 'admin' ? 'user' : u.role}
                         onChange={(e) => adminChangeRole(u.id, e.target.value as UserRole)}
                         disabled={false}
                         className="text-[11px] font-semibold bg-neutral-100 dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 rounded-lg p-1 text-neutral-800 dark:text-neutral-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                        title={
-                          false
-                            ? 'Default Super Admin (Locked)'
-                            : false
-                            ? 'Only Admin can change user roles'
-                            : 'Change user role'
-                        }
+                        title="Change user role"
                       >
                         <option value="user">USER</option>
                         <option value="moderator">MODERATOR</option>
-                        <option value="admin">ADMIN</option>
                       </select>
                     </td>
                     <td className="p-3.5 space-x-1">

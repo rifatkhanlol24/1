@@ -296,13 +296,12 @@ export const FirebaseConsole: React.FC = () => {
                     <td className="p-3.5 font-mono text-[11px] text-neutral-600 dark:text-neutral-300">{u.email}</td>
                     <td className="p-3.5">
                       <select
-                        value={u.role}
+                        value={u.role === 'admin' ? 'user' : u.role}
                         onChange={(e) => adminChangeRole(u.id, e.target.value as UserRole)}
                         className="text-[11px] font-semibold bg-neutral-100 dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 rounded-lg p-1 text-neutral-900 dark:text-neutral-100"
                       >
                         <option value="user">USER</option>
                         <option value="moderator">MODERATOR</option>
-                        <option value="admin">ADMIN</option>
                       </select>
                     </td>
                     <td className="p-3.5">

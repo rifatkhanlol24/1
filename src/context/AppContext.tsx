@@ -45,7 +45,7 @@ interface AppContextType {
   register: (email: string, username: string, fullName: string, password?: string) => boolean;
   logout: () => void;
   switchUser: (userId: string) => void;
-  updateProfile: (data: Partial<User>) => void;
+  updateProfile: (data: Partial<User>, targetUserId?: string) => void;
   toggleFollow: (targetUserId: string) => void;
   changeEmailAndPassword: (newEmail: string, newPassword?: string) => boolean;
   resetPasswordByUsernameOrEmail: (identifier: string, newPassword: string) => { success: boolean; message: string };
@@ -244,19 +244,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   useEffect(() => {
     const auth = getAuth(app);
-    const db = getFirestore(app);
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        try {
-          const adminDoc = await getDoc(doc(db, 'admins', user.uid));
-          if (adminDoc.exists() && adminDoc.data().role === 'admin') {
-            setIsFirebaseAdmin(true);
-          } else {
-            setIsFirebaseAdmin(false);
-          }
-        } catch {
-          setIsFirebaseAdmin(false);
-        }
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      // Authoritative Single Admin check: UID must strictly match UI28ofvzB7cjNJvCG0DvYgbCu9J3
+      if (user && user.uid === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3') {
+        setIsFirebaseAdmin(true);
       } else {
         setIsFirebaseAdmin(false);
       }
@@ -643,7 +634,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     if (!targetUser) return;
 
     // Check if the current user has permission to edit this profile
-    if (targetId !== currentUser.id && currentUser.role !== 'admin') {
+    if (targetId !== currentUser.id && !isFirebaseAdmin) {
       showToast(lang === 'bn' ? 'আপনার এই প্রোফাইলটি আপডেট করার অনুমতি নেই।' : 'You do not have permission to update this profile.');
       return;
     }
@@ -656,7 +647,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       finalData.username.toLowerCase() !== targetUser.username.toLowerCase()
     ) {
       const currentCount = targetUser.usernameChangeCount || 0;
-      if (currentCount >= 10 && currentUser.role !== 'admin') {
+      if (currentCount >= 10 && !isFirebaseAdmin) {
         showToast(
           lang === 'bn'
             ? 'ইতিমধ্যে ১০ বার ইউজারনেম পরিবর্তন করা হয়েছে। আর পরিবর্তন করা সম্ভব নয়!'
@@ -684,7 +675,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       }
 
       finalData.username = cleanUsername;
-      if (currentUser.role !== 'admin') {
+      if (!isFirebaseAdmin) {
         finalData.usernameChangeCount = currentCount + 1;
       }
     }
@@ -1239,8 +1230,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const adminChangeRole = (userId: string, role: UserRole) => {
-    // Role change is only permitted from the protected Admin Panel.
-    const targetUser = users.find((u) => u.id === userId);
+    // Single Admin Model: Never delegate admin role to any other account
+    if (role === 'admin') {
+      showToast(
+        lang === 'bn'
+          ? 'একক অ্যাডমিন মডেলের অধীনে অন্য কাউকে অ্যাডমিন রোল প্রদান করা নিষিদ্ধ।'
+          : 'Under the Single Admin Model, admin role cannot be delegated.'
+      );
+      return;
+    }
     setUsers((prev) =>
       prev.map((u) => (u.id === userId ? { ...u, role } : u))
     );
