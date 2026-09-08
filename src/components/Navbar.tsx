@@ -487,15 +487,7 @@ export const Navbar: React.FC = () => {
                         <Flame className="w-3.5 h-3.5 fill-current" />
                       </button>
                     )}
-                    <button
-                      onClick={() => {
-                        setIsAuthModalOpen(true);
-                        setIsUserMenuOpen(false);
-                      }}
-                      className="w-full text-left px-3 py-1.5 rounded-lg text-xs hover:bg-neutral-100 dark:hover:bg-neutral-700/50 text-neutral-700 dark:text-neutral-300"
-                    >
-                      {lang === 'bn' ? 'অ্যাকাউন্ট সেটিংস / তথ্য' : 'Account Details'}
-                    </button>
+
                     <button
                       onClick={() => {
                         setIsUserMenuOpen(false);
