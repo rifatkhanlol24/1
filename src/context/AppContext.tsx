@@ -296,7 +296,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     typeof Notification !== 'undefined' ? Notification.permission : 'default'
   );
 
-  const [activeTab, setActiveTab] = useState<NavigationTab>('feed');
+  const [activeTabState, setActiveTabState] = useState<NavigationTab>('feed');
+  const setActiveTab = (tab: NavigationTab) => {
+    setActiveTabState(tab);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+  const activeTab = activeTabState;
+
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [selectedUserProfileId, setSelectedUserProfileId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -625,22 +631,32 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   // Profile Update with 10-time Username Change limit & Max 10 Links
-  const updateProfile = (data: Partial<User>) => {
+  const updateProfile = (data: Partial<User>, targetUserId?: string) => {
     if (!currentUser) return;
+
+    const targetId = targetUserId || currentUser.id;
+    const targetUser = users.find(u => u.id === targetId);
+    if (!targetUser) return;
+
+    // Check if the current user has permission to edit this profile
+    if (targetId !== currentUser.id && currentUser.role !== 'admin') {
+      showToast(lang === 'bn' ? 'আপনার এই প্রোফাইলটি আপডেট করার অনুমতি নেই।' : 'You do not have permission to update this profile.');
+      return;
+    }
 
     let finalData = { ...data };
 
     // Check if username is being changed
     if (
       finalData.username &&
-      finalData.username.toLowerCase() !== currentUser.username.toLowerCase()
+      finalData.username.toLowerCase() !== targetUser.username.toLowerCase()
     ) {
-      const currentCount = currentUser.usernameChangeCount || 0;
+      const currentCount = targetUser.usernameChangeCount || 0;
       if (currentCount >= 10 && currentUser.role !== 'admin') {
         showToast(
           lang === 'bn'
-            ? 'আপনি ইতিমধ্যে ১০ বার ইউজারনেম পরিবর্তন করেছেন। আর পরিবর্তন করা সম্ভব নয়!'
-            : 'You have already changed your username 10 times. Maximum limit reached!'
+            ? 'ইতিমধ্যে ১০ বার ইউজারনেম পরিবর্তন করা হয়েছে। আর পরিবর্তন করা সম্ভব নয়!'
+            : 'Username has already been changed 10 times. Maximum limit reached!'
         );
         return;
       }
@@ -654,7 +670,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         return;
       }
       const isTaken = users.some(
-        (u) => u.id !== currentUser.id && u.username.toLowerCase() === cleanUsername
+        (u) => u.id !== targetId && u.username.toLowerCase() === cleanUsername
       );
       if (isTaken) {
         showToast(
@@ -675,7 +691,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
 
     setUsers((prev) =>
-      prev.map((u) => (u.id === currentUser.id ? { ...u, ...finalData } : u))
+      prev.map((u) => (u.id === targetId ? { ...u, ...finalData } : u))
     );
     showToast(lang === 'bn' ? 'প্রোফাইল সফলভাবে আপডেট হয়েছে!' : 'Profile updated successfully!');
   };

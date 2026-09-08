@@ -79,7 +79,9 @@ export const ProfileView: React.FC = () => {
 
   if (!profileUser) return null;
 
+  const isAdmin = currentUser?.role === 'admin';
   const isMe = currentUser?.id === profileUser.id;
+  const canEdit = isMe || isAdmin;
   const isFollowing = currentUser ? currentUser.following.includes(profileUser.id) : false;
 
   // Filter posts
@@ -105,17 +107,17 @@ export const ProfileView: React.FC = () => {
   );
 
   const handleOpenEdit = () => {
-    setEditUsername(currentUser?.username || '');
-    setEditName(currentUser?.fullName || '');
-    setEditBio(currentUser?.bio || '');
-    setEditLocation(currentUser?.location || '');
-    setEditWebsite(currentUser?.website || '');
-    setEditAvatar(currentUser?.avatar || '');
-    setEditCover(currentUser?.coverImage || '');
-    setEditStatus(currentUser?.statusBadge || '');
-    setEditLinks(currentUser?.links || []);
-    setEditEmail(currentUser?.email || '');
-    setEditPassword(currentUser?.password || '');
+    setEditUsername(profileUser.username || '');
+    setEditName(profileUser.fullName || '');
+    setEditBio(profileUser.bio || '');
+    setEditLocation(profileUser.location || '');
+    setEditWebsite(profileUser.website || '');
+    setEditAvatar(profileUser.avatar || '');
+    setEditCover(profileUser.coverImage || '');
+    setEditStatus(profileUser.statusBadge || '');
+    setEditLinks(profileUser.links || []);
+    setEditEmail(profileUser.email || '');
+    setEditPassword(profileUser.password || '');
     setIsEditModalOpen(true);
   };
 
@@ -155,9 +157,9 @@ export const ProfileView: React.FC = () => {
       coverImage: editCover.trim() || profileUser.coverImage,
       statusBadge: editStatus.trim(),
       links: editLinks.slice(0, 10),
-    });
+    }, profileUser.id);
 
-    if (editEmail !== currentUser?.email || editPassword !== currentUser?.password) {
+    if (isMe && (editEmail !== currentUser?.email || editPassword !== currentUser?.password)) {
       changeEmailAndPassword(editEmail, editPassword);
     }
 
@@ -218,7 +220,7 @@ export const ProfileView: React.FC = () => {
             alt="Cover banner"
             className="w-full h-full object-cover"
           />
-          {isMe && (
+          {canEdit && (
             <button
               onClick={handleOpenEdit}
               className="absolute top-3 right-3 px-3 py-1.5 rounded-full bg-black/60 hover:bg-black/80 text-white text-xs font-medium backdrop-blur-sm flex items-center gap-1.5 transition-all"
@@ -239,7 +241,7 @@ export const ProfileView: React.FC = () => {
                 alt={profileUser.fullName}
                 className="w-28 h-28 sm:w-36 sm:h-36 rounded-3xl object-cover border-4 border-white dark:border-neutral-900 shadow-xl bg-neutral-200"
               />
-              {isMe && (
+              {canEdit && (
                 <button
                   onClick={handleOpenEdit}
                   className="absolute bottom-1 right-1 p-2 rounded-xl bg-indigo-600 text-white shadow-md hover:bg-indigo-700"
@@ -252,7 +254,7 @@ export const ProfileView: React.FC = () => {
 
             {/* Action Buttons */}
             <div className="flex flex-wrap items-center gap-2">
-              {isMe ? (
+              {canEdit && (
                 <>
                   <button
                     id="edit-profile-btn"
@@ -263,7 +265,7 @@ export const ProfileView: React.FC = () => {
                     <span>{lang === 'bn' ? 'প্রোফাইল কাস্টমাইজ' : 'Edit Profile'}</span>
                   </button>
 
-                  {!profileUser.isVip && !profileUser.isVerified && (
+                  {isMe && !profileUser.isVip && !profileUser.isVerified && (
                     <button
                       onClick={() => setIsVerificationModalOpen(true)}
                       className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 text-xs font-bold text-amber-700 dark:text-amber-300 hover:bg-amber-100 transition-colors shadow-sm"
@@ -273,7 +275,8 @@ export const ProfileView: React.FC = () => {
                     </button>
                   )}
                 </>
-              ) : (
+              )}
+              {!isMe && (
                 <>
                   <button
                     onClick={() => toggleFollow(profileUser.id)}
@@ -978,6 +981,20 @@ export const ProfileView: React.FC = () => {
                 />
               </div>
 
+              {/* Category / Status Badge */}
+              <div>
+                <label className="text-xs font-semibold text-neutral-700 dark:text-neutral-300 block mb-1">
+                  {lang === 'bn' ? 'ক্যাটাগরি (Blogger, Creator ইত্যাদি):' : 'Category (Blogger, Creator etc):'}
+                </label>
+                <input
+                  type="text"
+                  value={editStatus}
+                  onChange={(e) => setEditStatus(e.target.value)}
+                  placeholder={lang === 'bn' ? 'Blogger, Developer, Creator...' : 'Blogger, Developer, Creator...'}
+                  className="w-full text-xs p-2.5 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100"
+                />
+              </div>
+
               {/* Bio */}
               <div>
                 <label className="text-xs font-semibold text-neutral-700 dark:text-neutral-300 block mb-1">
@@ -1086,39 +1103,41 @@ export const ProfileView: React.FC = () => {
               </div>
 
               {/* Email & Password Security Settings */}
-              <div className="p-3 rounded-2xl bg-neutral-50 dark:bg-neutral-800/50 border border-neutral-200 dark:border-neutral-700 space-y-2.5">
-                <label className="text-xs font-bold text-neutral-800 dark:text-neutral-200 flex items-center gap-1.5">
-                  <Key className="w-3.5 h-3.5 text-indigo-500" />
-                  <span>{lang === 'bn' ? 'অ্যাকাউন্ট ইমেইল ও পাসওয়ার্ড পরিবর্তন:' : 'Email & Password Settings:'}</span>
-                </label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                  <div>
-                    <label className="text-[11px] font-semibold text-neutral-500 block mb-1">
-                      {lang === 'bn' ? 'লগইন ইমেইল:' : 'Login Email:'}
-                    </label>
-                    <input
-                      type="email"
-                      value={editEmail}
-                      onChange={(e) => setEditEmail(e.target.value)}
-                      className="w-full text-xs p-2 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[11px] font-semibold text-neutral-500 block mb-1">
-                      {lang === 'bn' ? 'পাসওয়ার্ড:' : 'Password:'}
-                    </label>
-                    <input
-                      type="text"
-                      value={editPassword}
-                      onChange={(e) => setEditPassword(e.target.value)}
-                      placeholder="Enter new password"
-                      className="w-full text-xs p-2 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100"
-                      required
-                    />
+              {isMe && (
+                <div className="p-3 rounded-2xl bg-neutral-50 dark:bg-neutral-800/50 border border-neutral-200 dark:border-neutral-700 space-y-2.5">
+                  <label className="text-xs font-bold text-neutral-800 dark:text-neutral-200 flex items-center gap-1.5">
+                    <Key className="w-3.5 h-3.5 text-indigo-500" />
+                    <span>{lang === 'bn' ? 'অ্যাকাউন্ট ইমেইল ও পাসওয়ার্ড পরিবর্তন:' : 'Email & Password Settings:'}</span>
+                  </label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    <div>
+                      <label className="text-[11px] font-semibold text-neutral-500 block mb-1">
+                        {lang === 'bn' ? 'লগইন ইমেইল:' : 'Login Email:'}
+                      </label>
+                      <input
+                        type="email"
+                        value={editEmail}
+                        onChange={(e) => setEditEmail(e.target.value)}
+                        className="w-full text-xs p-2 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[11px] font-semibold text-neutral-500 block mb-1">
+                        {lang === 'bn' ? 'পাসওয়ার্ড:' : 'Password:'}
+                      </label>
+                      <input
+                        type="text"
+                        value={editPassword}
+                        onChange={(e) => setEditPassword(e.target.value)}
+                        placeholder="Enter new password"
+                        className="w-full text-xs p-2 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100"
+                        required
+                      />
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
             </div>
 
             {/* Action buttons - Pinned at bottom and always visible */}
