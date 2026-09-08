@@ -1,29 +1,40 @@
 import {
-  ref,
-  get,
-  set,
-  remove,
-  child,
-} from 'firebase/database';
+  collection,
+  doc,
+  getDocs,
+  setDoc,
+  updateDoc,
+  deleteDoc,
+  onSnapshot,
+  query,
+  orderBy,
+  limit,
+} from 'firebase/firestore';
 import { db } from './firebase';
 import { User, Post, Message, AppNotification } from '../types';
+
+// Collections
+const USERS_COL = 'users';
+const POSTS_COL = 'posts';
+const MESSAGES_COL = 'messages';
+const NOTIFS_COL = 'notifications';
 
 export const firebaseService = {
   // Check connection status
   async checkConnection(): Promise<{ success: boolean; message: string; timestamp: string }> {
     try {
-      const dbRef = ref(db);
-      await get(child(dbRef, 'users'));
+      const colRef = collection(db, USERS_COL);
+      await getDocs(query(colRef, limit(1)));
       return {
         success: true,
-        message: 'Connected to Firebase Realtime Database (social-media1bd)',
+        message: 'Connected to Cloud Firestore (social-media1bd)',
         timestamp: new Date().toISOString(),
       };
     } catch (err: unknown) {
       const errorMsg = err instanceof Error ? err.message : 'Unknown error';
       return {
         success: false,
-        message: `Realtime Database connection check failed: ${errorMsg}`,
+        message: `Connection check failed: ${errorMsg}`,
         timestamp: new Date().toISOString(),
       };
     }
@@ -32,11 +43,11 @@ export const firebaseService = {
   // Save / Update User
   async saveUser(user: User): Promise<boolean> {
     try {
-      const userRef = ref(db, `users/${user.id}`);
-      await set(userRef, user);
+      const docRef = doc(db, USERS_COL, user.id);
+      await setDoc(docRef, user, { merge: true });
       return true;
     } catch (err) {
-      console.error(`[Firebase RTDB Write Error] Failed to write user profile to path users/${user.id}:`, err);
+      console.warn('Firestore saveUser error:', err);
       return false;
     }
   },
@@ -44,19 +55,11 @@ export const firebaseService = {
   // Fetch Users
   async getUsers(): Promise<User[]> {
     try {
-      const usersRef = ref(db, 'users');
-      const snapshot = await get(usersRef);
-      if (snapshot.exists()) {
-        const val = snapshot.val();
-        if (Array.isArray(val)) {
-          return val.filter(Boolean);
-        } else if (typeof val === 'object' && val !== null) {
-          return Object.values(val) as User[];
-        }
-      }
-      return [];
+      const colRef = collection(db, USERS_COL);
+      const snapshot = await getDocs(colRef);
+      return snapshot.docs.map((d) => d.data() as User);
     } catch (err) {
-      console.warn('Realtime Database getUsers error:', err);
+      console.warn('Firestore getUsers error:', err);
       return [];
     }
   },
@@ -64,11 +67,11 @@ export const firebaseService = {
   // Save Post
   async savePost(post: Post): Promise<boolean> {
     try {
-      const postRef = ref(db, `posts/${post.id}`);
-      await set(postRef, post);
+      const docRef = doc(db, POSTS_COL, post.id);
+      await setDoc(docRef, post, { merge: true });
       return true;
     } catch (err) {
-      console.warn('Realtime Database savePost error:', err);
+      console.warn('Firestore savePost error:', err);
       return false;
     }
   },
@@ -76,11 +79,11 @@ export const firebaseService = {
   // Delete Post
   async deletePost(postId: string): Promise<boolean> {
     try {
-      const postRef = ref(db, `posts/${postId}`);
-      await remove(postRef);
+      const docRef = doc(db, POSTS_COL, postId);
+      await deleteDoc(docRef);
       return true;
     } catch (err) {
-      console.warn('Realtime Database deletePost error:', err);
+      console.warn('Firestore deletePost error:', err);
       return false;
     }
   },
@@ -88,19 +91,11 @@ export const firebaseService = {
   // Fetch Posts
   async getPosts(): Promise<Post[]> {
     try {
-      const postsRef = ref(db, 'posts');
-      const snapshot = await get(postsRef);
-      if (snapshot.exists()) {
-        const val = snapshot.val();
-        if (Array.isArray(val)) {
-          return val.filter(Boolean);
-        } else if (typeof val === 'object' && val !== null) {
-          return Object.values(val) as Post[];
-        }
-      }
-      return [];
+      const colRef = collection(db, POSTS_COL);
+      const snapshot = await getDocs(colRef);
+      return snapshot.docs.map((d) => d.data() as Post);
     } catch (err) {
-      console.warn('Realtime Database getPosts error:', err);
+      console.warn('Firestore getPosts error:', err);
       return [];
     }
   },
@@ -108,11 +103,11 @@ export const firebaseService = {
   // Save Message
   async saveMessage(msg: Message): Promise<boolean> {
     try {
-      const msgRef = ref(db, `messages/${msg.id}`);
-      await set(msgRef, msg);
+      const docRef = doc(db, MESSAGES_COL, msg.id);
+      await setDoc(docRef, msg, { merge: true });
       return true;
     } catch (err) {
-      console.warn('Realtime Database saveMessage error:', err);
+      console.warn('Firestore saveMessage error:', err);
       return false;
     }
   },
@@ -120,51 +115,29 @@ export const firebaseService = {
   // Save Notification
   async saveNotification(notif: AppNotification): Promise<boolean> {
     try {
-      const notifRef = ref(db, `notifications/${notif.id}`);
-      await set(notifRef, notif);
+      const docRef = doc(db, NOTIFS_COL, notif.id);
+      await setDoc(docRef, notif, { merge: true });
       return true;
     } catch (err) {
-      console.warn('Realtime Database saveNotification error:', err);
+      console.warn('Firestore saveNotification error:', err);
       return false;
     }
   },
 
-  // Bulk Seed initial state into Realtime Database
+  // Bulk Seed initial state into Firestore
   async seedInitialData(users: User[], posts: Post[]): Promise<{ usersCount: number; postsCount: number }> {
     let usersCount = 0;
     let postsCount = 0;
 
-    // Ensure Real Admin is always seeded
-    const adminUser: User = {
-      id: 'UI28ofvzB7cjNJvCG0DvYgbCu9J3',
-      email: 'soheltajbhola@gmail.com',
-      password: '',
-      username: 'shoheltaj',
-      usernameChangeCount: 0,
-      fullName: 'Shohel Taj',
-      fullNameBn: 'সোহেল তাজ',
-      fullNameEn: 'Shohel Taj',
-      avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80',
-      coverImage: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=1200&auto=format&fit=crop&q=80',
-      bio: 'Platform Lead & Creator. Building next-gen web applications and connecting communities across the globe 🚀',
-      location: 'Dhaka, Bangladesh',
-      website: 'https://techlystb.blogspot.com',
-      statusBadge: '🛡️ Platform Admin',
-      role: 'admin',
-      isVerified: true,
-      isVip: true,
-      badge: 'VIP',
-      isBanned: false,
-      followers: [],
-      following: [],
-      createdAt: '2024-01-15T09:00:00Z',
-    };
-    await set(ref(db, `users/UI28ofvzB7cjNJvCG0DvYgbCu9J3`), adminUser);
-    usersCount++;
+    for (const u of users) {
+      const docRef = doc(db, USERS_COL, u.id);
+      await setDoc(docRef, u, { merge: true });
+      usersCount++;
+    }
 
     for (const p of posts) {
-      const postRef = ref(db, `posts/${p.id}`);
-      await set(postRef, p);
+      const docRef = doc(db, POSTS_COL, p.id);
+      await setDoc(docRef, p, { merge: true });
       postsCount++;
     }
 

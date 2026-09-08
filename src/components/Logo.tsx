@@ -6,7 +6,7 @@ interface LogoProps {
   subtitle?: string;
 }
 
-export const Logo: React.FC<LogoProps> = ({ size = 'md', showText = false, subtitle }) => {
+export const Logo: React.FC<LogoProps> = ({ size = 'md', showText = true, subtitle }) => {
   const sizeClasses = {
     sm: 'w-8 h-8 rounded-full',
     md: 'w-10 h-10 rounded-full',
