@@ -521,15 +521,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const trimmedFullName = fullName.trim();
     const cleanUsername = username.trim();
 
-    // English-only Full Name validation
-    const englishNameRegex = /^[a-zA-Z\s.'-]+$/;
+    // English-only Full Name validation (A-Z, a-z and spaces only - no numbers or special chars)
+    const englishNameRegex = /^[a-zA-Z ]+$/;
     const hasBengaliChars = /[\u0980-\u09FF]/;
 
-    if (hasBengaliChars.test(trimmedFullName) || !englishNameRegex.test(trimmedFullName)) {
+    if (hasBengaliChars.test(trimmedFullName) || !englishNameRegex.test(trimmedFullName) || trimmedFullName.length < 2) {
       showToast(
         lang === 'bn'
-          ? 'নাম শুধুমাত্র ইংরেজি অক্ষরে হতে হবে (বাংলা অক্ষর গ্রহণযোগ্য নয়)।'
-          : 'Name must be in English characters only (Bengali characters not allowed).'
+          ? 'নাম শুধুমাত্র ইংরেজি অক্ষর (A-Z, a-z) এবং স্পেস হতে পারবে (সংখ্যা, প্রতীক বা বাংলা গ্রহণযোগ্য নয়)।'
+          : 'Name must contain only English letters (A-Z, a-z) and spaces.'
       );
       return false;
     }
@@ -685,17 +685,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       delete (finalData as any).createdAt;
     }
 
-    // English-only Full Name validation
+    // English-only Full Name validation (A-Z, a-z and spaces only - no numbers or special chars)
     if (finalData.fullName !== undefined) {
       const trimmedName = finalData.fullName.trim();
-      const englishNameRegex = /^[a-zA-Z\s.'-]+$/;
+      const englishNameRegex = /^[a-zA-Z ]+$/;
       const hasBengaliChars = /[\u0980-\u09FF]/;
 
-      if (hasBengaliChars.test(trimmedName) || !englishNameRegex.test(trimmedName)) {
+      if (hasBengaliChars.test(trimmedName) || !englishNameRegex.test(trimmedName) || trimmedName.length < 2) {
         showToast(
           lang === 'bn'
-            ? 'নাম শুধুমাত্র ইংরেজি অক্ষরে হতে হবে (বাংলা অক্ষর গ্রহণযোগ্য নয়)।'
-            : 'Name must be in English characters only (Bengali characters not allowed).'
+            ? 'নাম শুধুমাত্র ইংরেজি অক্ষর (A-Z, a-z) এবং স্পেস হতে পারবে (সংখ্যা, প্রতীক বা বাংলা গ্রহণযোগ্য নয়)।'
+            : 'Name must contain only English letters (A-Z, a-z) and spaces.'
         );
         return;
       }

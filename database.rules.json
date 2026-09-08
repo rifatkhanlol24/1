@@ -21,7 +21,7 @@
           ".validate": "newData.isString() && (auth.uid === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3' || newData.val() === $userId)"
         },
         "fullName": {
-          ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 70 && newData.val().matches(/^[a-zA-Z0-9 .'-]+$/) && !newData.val().matches(/[\\u0980-\\u09FF]/)"
+          ".validate": "newData.isString() && newData.val().length >= 2 && newData.val().length <= 70 && newData.val().matches(/^[a-zA-Z ]+$/) && !newData.val().matches(/[\\u0980-\\u09FF]/)"
         },
         "username": {
           ".validate": "newData.isString() && newData.val().length >= 3 && newData.val().length <= 30 && newData.val().matches(/^[a-zA-Z0-9_.-]+$/) && !newData.val().matches(/[\\u0980-\\u09FF]/)"

@@ -156,15 +156,15 @@ export const ProfileView: React.FC = () => {
       return;
     }
 
-    // Name English-only validation (A-Z, a-z, spaces, . ' -)
-    const englishNameRegex = /^[a-zA-Z\s.'-]+$/;
+    // Name English-only validation (A-Z, a-z and spaces only - no numbers or special chars)
+    const englishNameRegex = /^[a-zA-Z ]+$/;
     const hasBengaliChars = /[\u0980-\u09FF]/;
 
-    if (hasBengaliChars.test(trimmedFullName) || !englishNameRegex.test(trimmedFullName)) {
+    if (hasBengaliChars.test(trimmedFullName) || !englishNameRegex.test(trimmedFullName) || trimmedFullName.length < 2) {
       showToast(
         lang === 'bn'
-          ? 'নাম শুধুমাত্র ইংরেজি অক্ষরে হতে হবে (বাংলা অক্ষর গ্রহণযোগ্য নয়)।'
-          : 'Name must be in English characters only (Bengali characters not allowed).'
+          ? 'নাম শুধুমাত্র ইংরেজি অক্ষর (A-Z, a-z) এবং স্পেস হতে পারবে (সংখ্যা, প্রতীক বা বাংলা গ্রহণযোগ্য নয়)।'
+          : 'Name must contain only English letters (A-Z, a-z) and spaces.'
       );
       return;
     }
