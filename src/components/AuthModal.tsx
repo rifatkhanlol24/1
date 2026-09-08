@@ -28,12 +28,19 @@ export const AuthModal: React.FC = () => {
   const [username, setUsername] = useState('');
   const [fullName, setFullName] = useState('');
 
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   if (!isAuthModalOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (mode === 'login') {
-      login(email.trim(), password.trim() || undefined);
+      setIsSubmitting(true);
+      try {
+        await login(email.trim(), password.trim() || undefined);
+      } finally {
+        setIsSubmitting(false);
+      }
     } else {
       const trimmedFullName = fullName.trim();
       const trimmedUsername = username.trim();
@@ -208,11 +215,20 @@ export const AuthModal: React.FC = () => {
 
           <button
             type="submit"
-            className="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-md shadow-indigo-500/20 flex items-center justify-center gap-2 transition-all mt-2"
+            disabled={isSubmitting}
+            className="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-md shadow-indigo-500/20 flex items-center justify-center gap-2 transition-all mt-2 disabled:opacity-70 disabled:cursor-not-allowed"
           >
-            {mode === 'login' ? <LogIn className="w-4 h-4" /> : <UserPlus className="w-4 h-4" />}
+            {isSubmitting ? (
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            ) : mode === 'login' ? (
+              <LogIn className="w-4 h-4" />
+            ) : (
+              <UserPlus className="w-4 h-4" />
+            )}
             <span>
-              {mode === 'login'
+              {isSubmitting
+                ? lang === 'bn' ? 'যাচাই করা হচ্ছে...' : 'Authenticating...'
+                : mode === 'login'
                 ? lang === 'bn' ? 'লগইন করুন' : 'Sign In with Email'
                 : lang === 'bn' ? 'অ্যাকাউন্ট তৈরি করুন' : 'Create Account'}
             </span>

@@ -51,20 +51,18 @@ export const AuthGateScreen: React.FC = () => {
 
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!emailOrUsername.trim()) {
       showToast(lang === 'bn' ? 'দয়া করে ইমেইল বা ইউজারনেম দিন।' : 'Please enter email or username.');
       return;
     }
     setIsLoading(true);
-    setTimeout(() => {
-      const success = login(emailOrUsername.trim(), password.trim() || undefined);
+    try {
+      await login(emailOrUsername.trim(), password.trim() || undefined);
+    } finally {
       setIsLoading(false);
-      if (!success) {
-        // If login failed
-      }
-    }, 400);
+    }
   };
 
   const handleRegister = (e: React.FormEvent) => {

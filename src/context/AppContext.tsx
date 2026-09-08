@@ -22,7 +22,7 @@ import {
 import { generateUniqueBilingualUser, sanitizeUserToBilingual } from '../utils/userGenerator';
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut } from 'firebase/auth';
 import { getFirestore, doc, getDoc } from 'firebase/firestore';
-import { app } from '../lib/firebase';
+import { app, auth, db } from '../lib/firebase';
 
 export type NavigationTab =
   | 'feed'
@@ -41,7 +41,7 @@ interface AppContextType {
   loggedInUserIds: string[];
   recordLoggedInUser: (uid: string) => void;
   removeLoggedInAccount: (userId: string) => void;
-  login: (emailOrUsername: string, password?: string) => boolean;
+  login: (emailOrUsername: string, password?: string) => Promise<boolean>;
   register: (email: string, username: string, fullName: string, password?: string) => boolean;
   logout: () => void;
   switchUser: (userId: string) => void;
@@ -242,41 +242,75 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const [isFirebaseAdmin, setIsFirebaseAdmin] = useState<boolean>(false);
 
+  // Helper to load or construct user profile from Firebase Firestore users/{uid}
+  const loadUserProfileFromFirebase = async (
+    uid: string,
+    fallbackEmail?: string,
+    fallbackName?: string
+  ): Promise<User> => {
+    try {
+      const userDocRef = doc(db, 'users', uid);
+      const docSnap = await getDoc(userDocRef);
+      if (docSnap.exists()) {
+        const data = docSnap.data() as User;
+        return {
+          ...data,
+          id: uid,
+        };
+      }
+    } catch (err) {
+      console.warn('[Firebase Firestore] Could not fetch profile for UID:', uid, err);
+    }
+
+    const isAdmin = uid === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3';
+    const defaultUser: User = {
+      id: uid,
+      email: fallbackEmail || (isAdmin ? 'soheltajbhola@gmail.com' : `${uid}@1social.com`),
+      password: '',
+      username: isAdmin ? 'shoheltaj' : `user_${uid.slice(0, 6)}`,
+      usernameChangeCount: 0,
+      fullName: fallbackName || (isAdmin ? 'Shohel Taj' : '1Social Member'),
+      fullNameBn: isAdmin ? 'সোহেল তাজ' : undefined,
+      fullNameEn: isAdmin ? 'Shohel Taj' : undefined,
+      avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80',
+      coverImage: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=1200&auto=format&fit=crop&q=80',
+      bio: isAdmin
+        ? 'Platform Lead & Creator. Building next-gen web applications and connecting communities across the globe 🚀'
+        : 'Member of 1Social Community.',
+      location: 'Dhaka, Bangladesh',
+      website: 'https://techlystb.blogspot.com',
+      statusBadge: isAdmin ? '🛡️ Platform Admin' : undefined,
+      role: isAdmin ? 'admin' : 'user',
+      isVerified: isAdmin,
+      isVip: isAdmin,
+      badge: isAdmin ? 'VIP' : undefined,
+      isBanned: false,
+      followers: [],
+      following: [],
+      createdAt: new Date().toISOString(),
+    };
+
+    return defaultUser;
+  };
+
   useEffect(() => {
-    const auth = getAuth(app);
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
       // Authoritative Single Admin check: UID must strictly match UI28ofvzB7cjNJvCG0DvYgbCu9J3
-      if (user && user.uid === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3') {
-        setIsFirebaseAdmin(true);
+      if (user) {
+        const isAdmin = user.uid === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3';
+        setIsFirebaseAdmin(isAdmin);
+
+        const profile = await loadUserProfileFromFirebase(
+          user.uid,
+          user.email || undefined,
+          user.displayName || undefined
+        );
+
         setUsers((prev) => {
-          const exists = prev.find((u) => u.id === user.uid);
-          if (!exists) {
-            const adminUser: User = {
-              id: user.uid,
-              email: user.email || 'soheltajbhola@gmail.com',
-              password: '',
-              username: 'shoheltaj',
-              usernameChangeCount: 0,
-              fullName: user.displayName || 'Shohel Taj',
-              avatar: user.photoURL || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80',
-              coverImage: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=1200&auto=format&fit=crop&q=80',
-              bio: 'Platform Lead & Creator. Building next-gen web applications and connecting communities across the globe 🚀',
-              location: 'Dhaka, Bangladesh',
-              website: 'https://techlystb.blogspot.com',
-              statusBadge: '🛡️ Platform Admin',
-              role: 'admin',
-              isVerified: true,
-              isVip: true,
-              badge: 'VIP',
-              isBanned: false,
-              followers: [],
-              following: [],
-              createdAt: new Date().toISOString(),
-            };
-            return [adminUser, ...prev.filter((u) => u.id !== 'user-admin')];
-          }
-          return prev;
+          const filtered = prev.filter((u) => u.id !== user.uid && u.id !== 'user-admin');
+          return [profile, ...filtered];
         });
+
         setCurrentUserId(user.uid);
         recordLoggedInUser(user.uid);
       } else {
@@ -499,31 +533,99 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   // Auth Operations
-  const login = (emailOrUsername: string, password?: string): boolean => {
-    const clean = emailOrUsername.trim().toLowerCase();
-    const found = users.find(
-      (u) => u.email.toLowerCase() === clean || u.username.toLowerCase() === clean
-    );
+  const login = async (emailOrUsername: string, password?: string): Promise<boolean> => {
+    const clean = emailOrUsername.trim();
+    const cleanLower = clean.toLowerCase();
 
-    const isDemoMockUser = found && (found.id.startsWith('user-') || found.email.endsWith('@1social.com'));
+    const isEmail = clean.includes('@');
+    const isDemoAccount =
+      cleanLower === 'shohel@1social.com' ||
+      cleanLower === 'sarah.lens@creative.io' ||
+      cleanLower === 'rahim.voice@sound.org' ||
+      cleanLower === 'nusrat.art@gallery.bd' ||
+      cleanLower === 'tanvir.code@devzone.com' ||
+      cleanLower.endsWith('@1social.com') ||
+      !isEmail; // username login
 
-    // If password provided and it is NOT a local mock user, authenticate with Firebase Auth
-    if (password && !isDemoMockUser && clean.includes('@')) {
+    // 1. Production Login with Firebase Authentication
+    if (isEmail && !isDemoAccount && password) {
       try {
-        const auth = getAuth(app);
-        signInWithEmailAndPassword(auth, clean, password)
-          .then((cred) => {
-            if (cred.user.uid === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3') {
-              setIsFirebaseAdmin(true);
-            }
-          })
-          .catch((err) => {
-            console.warn('[Firebase Auth] Sign in error:', err.message);
-          });
-      } catch (err) {
-        console.warn('[Firebase Auth] Sign in error:', err);
+        const cred = await signInWithEmailAndPassword(auth, clean, password);
+        const fbUser = cred.user;
+        const uid = fbUser.uid;
+
+        // Authoritative Single Admin check: UID must strictly match UI28ofvzB7cjNJvCG0DvYgbCu9J3
+        const isAdmin = uid === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3';
+        setIsFirebaseAdmin(isAdmin);
+
+        // Load profile from Firestore users/{uid}
+        const userProfile = await loadUserProfileFromFirebase(
+          uid,
+          fbUser.email || clean,
+          fbUser.displayName || undefined
+        );
+
+        setUsers((prev) => {
+          const filtered = prev.filter((u) => u.id !== uid && u.id !== 'user-admin');
+          return [userProfile, ...filtered];
+        });
+
+        setCurrentUserId(uid);
+        safeLocalStorageSet('vc_current_user_id', uid);
+        recordLoggedInUser(uid);
+
+        showToast(
+          lang === 'bn'
+            ? `স্বাগতম, ${userProfile.fullName}! ${isAdmin ? '(অ্যাডমিন ভেরিফাইড)' : ''}`
+            : `Welcome back, ${userProfile.fullName}! ${isAdmin ? '(Admin Verified)' : ''}`
+        );
+        setIsAuthModalOpen(false);
+        return true;
+      } catch (err: any) {
+        console.error('[Firebase Auth Error]', err.code, err.message);
+
+        let errorMsg = err.message || (lang === 'bn' ? 'লগইন ব্যর্থ হয়েছে।' : 'Login failed.');
+        if (err.code === 'auth/invalid-credential') {
+          errorMsg =
+            lang === 'bn'
+              ? 'ভুল ইমেইল বা পাসওয়ার্ড (auth/invalid-credential)।'
+              : 'Invalid email or password (auth/invalid-credential).';
+        } else if (err.code === 'auth/wrong-password') {
+          errorMsg =
+            lang === 'bn'
+              ? 'ভুল পাসওয়ার্ড (auth/wrong-password)।'
+              : 'Incorrect password (auth/wrong-password).';
+        } else if (err.code === 'auth/user-not-found') {
+          errorMsg =
+            lang === 'bn'
+              ? 'এই ইমেইলে কোনো অ্যাকাউন্ট পাওয়া যায়নি (auth/user-not-found)।'
+              : 'No account found with this email (auth/user-not-found).';
+        } else if (err.code === 'auth/too-many-requests') {
+          errorMsg =
+            lang === 'bn'
+              ? 'অতিরিক্ত চেষ্টার কারণে সাময়িকভাবে ব্লক করা হয়েছে (auth/too-many-requests)। কিছুক্ষণ পর আবার চেষ্টা করুন।'
+              : 'Access temporarily blocked due to many failed attempts (auth/too-many-requests). Please try again later.';
+        } else if (err.code === 'auth/invalid-email') {
+          errorMsg =
+            lang === 'bn'
+              ? 'অবৈধ ইমেইল ফরম্যাট (auth/invalid-email)।'
+              : 'Invalid email format (auth/invalid-email).';
+        } else if (err.code === 'auth/user-disabled') {
+          errorMsg =
+            lang === 'bn'
+              ? 'এই অ্যাকাউন্টটি নিষ্ক্রিয় করা হয়েছে (auth/user-disabled)।'
+              : 'This user account has been disabled (auth/user-disabled).';
+        }
+
+        showToast(errorMsg);
+        return false;
       }
     }
+
+    // 2. Demo / Mock Local Login (for demo testing and username preview)
+    const found = users.find(
+      (u) => u.email.toLowerCase() === cleanLower || u.username.toLowerCase() === cleanLower
+    );
 
     if (found) {
       if (found.isBanned) {
@@ -535,23 +637,33 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         return false;
       }
       setCurrentUserId(found.id);
+      safeLocalStorageSet('vc_current_user_id', found.id);
       recordLoggedInUser(found.id);
       showToast(lang === 'bn' ? `স্বাগতম, ${found.fullName}!` : `Welcome back, ${found.fullName}!`);
       setIsAuthModalOpen(false);
       return true;
     }
-    // Auto register demo if unknown email
-    const newUsername = clean.includes('@')
-      ? clean.split('@')[0].replace(/[^a-zA-Z0-9_]/g, '_') + Math.floor(Math.random() * 90 + 10)
-      : clean.replace(/[^a-zA-Z0-9_]/g, '_');
+
+    // If an unknown email was provided without password
+    if (isEmail) {
+      showToast(
+        lang === 'bn'
+          ? 'এই অ্যাকাউন্টে লগইন করতে পাসওয়ার্ড দিন অথবা সাইন আপ করুন।'
+          : 'Please provide password to log in or register a new account.'
+      );
+      return false;
+    }
+
+    // Auto demo guest account for local quick username
+    const newUsername = cleanLower.replace(/[^a-zA-Z0-9_]/g, '_');
     const newUser: User = {
       id: `user-${Date.now()}`,
-      email: clean.includes('@') ? clean : `${clean}@example.com`,
+      email: `${newUsername}@1social.com`,
       password: password || 'password123',
       username: newUsername,
       usernameChangeCount: 0,
       fullName: newUsername.replace(/_/g, ' ').toUpperCase(),
-      avatar: `https://images.unsplash.com/photo-${1535713875002 + Math.floor(Math.random() * 100)}?w=400&auto=format&fit=crop&q=80`,
+      avatar: `https://images.unsplash.com/photo-1535713875002 + Math.floor(Math.random() * 100)}?w=400&auto=format&fit=crop&q=80`,
       coverImage: 'https://images.unsplash.com/photo-1579546929518-9e396f3cc809?w=1200&auto=format&fit=crop&q=80',
       bio: 'New explorer on the platform! Hello world ✨',
       role: 'user',
@@ -563,6 +675,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     };
     setUsers((prev) => [newUser, ...prev]);
     setCurrentUserId(newUser.id);
+    safeLocalStorageSet('vc_current_user_id', newUser.id);
     recordLoggedInUser(newUser.id);
     showToast(lang === 'bn' ? 'অ্যাকাউন্ট সফলভাবে তৈরি হয়েছে!' : 'Account created successfully!');
     setIsAuthModalOpen(false);
