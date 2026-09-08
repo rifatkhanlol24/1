@@ -337,6 +337,54 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   }, []);
 
   useEffect(() => {
+    // Process redirect sign in result on app startup (for mobile or redirect login)
+    getRedirectResult(auth)
+      .then(async (cred) => {
+        if (cred?.user) {
+          const fbUser = cred.user;
+          const uid = fbUser.uid;
+          const isAdmin = uid === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3';
+          setIsFirebaseAdmin(isAdmin);
+
+          const userProfile = await loadUserProfileFromFirebase(
+            uid,
+            fbUser.email || undefined,
+            fbUser.displayName || undefined,
+            fbUser.photoURL || undefined
+          );
+
+          setUsers((prev) => {
+            const filtered = prev.filter((u) => u.id !== uid && u.id !== 'user-admin');
+            return [userProfile, ...filtered];
+          });
+
+          setCurrentUserId(uid);
+          safeLocalStorageSet('vc_current_user_id', uid);
+          recordLoggedInUser(uid);
+
+          showToast(
+            lang === 'bn'
+              ? `Google দিয়ে স্বাগতম, ${userProfile.fullName}! ${isAdmin ? '(Main Admin ভেরিফাইড)' : ''}`
+              : `Signed in with Google, welcome ${userProfile.fullName}! ${isAdmin ? '(Main Admin Verified)' : ''}`
+          );
+          setIsAuthModalOpen(false);
+        }
+      })
+      .catch((err) => {
+        if (err?.code) {
+          console.error('[Firebase Redirect Result Error]', err.code, err.message);
+          let errorMsg = err?.message || (lang === 'bn' ? 'Google সাইন ইন ব্যর্থ হয়েছে।' : 'Google Sign-In failed.');
+          if (err?.code === 'auth/unauthorized-domain') {
+            errorMsg = lang === 'bn'
+              ? 'এই ডোমেইনটি Firebase-এ অনুমোদিত নয়। (Firebase Console -> Auth -> Settings -> Authorized Domains-এ এই URL টি যোগ করুন)'
+              : 'This domain is not authorized in Firebase Auth Settings.';
+          } else if (err?.code === 'auth/operation-not-allowed') {
+            errorMsg = lang === 'bn' ? 'Firebase Console-এ Google Provider সক্রিয় করা প্রয়োজন।' : 'Google provider is not enabled in Firebase Console.';
+          }
+          showToast(errorMsg);
+        }
+      });
+
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       // Authoritative Single Admin check: UID must strictly match UI28ofvzB7cjNJvCG0DvYgbCu9J3
       if (user) {
@@ -582,22 +630,42 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     try {
       const provider = new GoogleAuthProvider();
       provider.setCustomParameters({ prompt: 'select_account' });
+
+      const isMobile =
+        typeof navigator !== 'undefined' &&
+        /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
       let cred;
-      try {
-        cred = await signInWithPopup(auth, provider);
-      } catch (popupErr: any) {
-        console.warn('Popup sign in failed, trying redirect:', popupErr);
-        if (
-          popupErr?.code === 'auth/popup-blocked' ||
-          popupErr?.code === 'auth/cancelled-popup-request' ||
-          popupErr?.code === 'auth/popup-closed-by-user' ||
-          popupErr?.code === 'auth/unauthorized-domain'
-        ) {
-          await signInWithRedirect(auth, provider);
-          return true;
+      if (isMobile) {
+        // Mobile browsers block popups or hang on popup promises; use redirect directly
+        await signInWithRedirect(auth, provider);
+        return true;
+      } else {
+        try {
+          // Race popup with 8s timeout to prevent hanging on blocked popup promises
+          const popupTimeout = new Promise((_, reject) =>
+            setTimeout(() => reject({ code: 'auth/popup-blocked', message: 'Popup timeout on browser' }), 8000)
+          );
+          cred = (await Promise.race([signInWithPopup(auth, provider), popupTimeout])) as any;
+        } catch (popupErr: any) {
+          console.warn('Popup sign in failed or timed out, trying redirect:', popupErr);
+          if (
+            popupErr?.code === 'auth/popup-blocked' ||
+            popupErr?.code === 'auth/cancelled-popup-request' ||
+            popupErr?.code === 'auth/popup-closed-by-user' ||
+            popupErr?.code === 'auth/unauthorized-domain'
+          ) {
+            await signInWithRedirect(auth, provider);
+            return true;
+          }
+          throw popupErr;
         }
-        throw popupErr;
       }
+
+      if (!cred?.user) {
+        return false;
+      }
+
       const fbUser = cred.user;
       const uid = fbUser.uid;
 
@@ -636,13 +704,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       if (err?.code === 'auth/popup-closed-by-user') {
         errorMsg = lang === 'bn' ? 'Google সাইন-ইন উইন্ডো বন্ধ করা হয়েছে।' : 'Sign-in popup was closed.';
       } else if (err?.code === 'auth/popup-blocked') {
-        errorMsg = lang === 'bn' ? 'ব্রাউজারে পপ-আপ ব্লক করা হয়েছে। দয়া করে পপ-আপ অনুমোদন করুন।' : 'Popup was blocked by browser. Please allow popups.';
+        errorMsg = lang === 'bn' ? 'ব্রাউজারে পপ-আপ ব্লক করা হয়েছে। রিডাইরেক্ট সাইন-ইন চেষ্টা করা হচ্ছে...' : 'Popup blocked. Attempting redirect sign in...';
       } else if (err?.code === 'auth/cancelled-popup-request') {
         errorMsg = lang === 'bn' ? 'আগের সাইন-ইন অনুরোধটি বাতিল হয়েছে।' : 'Sign-in request cancelled.';
       } else if (err?.code === 'auth/operation-not-allowed') {
         errorMsg = lang === 'bn' ? 'Firebase Console-এ Google Provider সক্রিয় করা প্রয়োজন।' : 'Google provider is not enabled in Firebase Console.';
       } else if (err?.code === 'auth/unauthorized-domain') {
-        errorMsg = lang === 'bn' ? 'এই ডোমেইনটি Firebase Auth-এ অনুমোদিত নয় (Authorized Domain)।' : 'This domain is not authorized in Firebase Auth.';
+        errorMsg = lang === 'bn'
+          ? 'এই ডোমেইনটি Firebase Auth-এ অনুমোদিত নয় (Firebase Console -> Auth -> Settings -> Authorized Domains-এ এই ডোমেইন যোগ করুন)।'
+          : 'This domain is not authorized in Firebase Auth Settings.';
       }
 
       showToast(errorMsg);
