@@ -329,6 +329,26 @@ export const AuthGateScreen: React.FC = () => {
                     <span>{lang === 'bn' ? 'গুগল দিয়ে প্রবেশ করুন (Continue with Google)' : 'Continue with Google'}</span>
                   </button>
 
+                  {/* 1-Click Fast Login Shortcuts */}
+                  <div className="grid grid-cols-2 gap-2 pt-0.5">
+                    <button
+                      type="button"
+                      onClick={() => login('soheltajbhola@gmail.com', 'admin123')}
+                      className="py-2 px-2.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-300/40 dark:border-amber-700/40 text-[11px] font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                    >
+                      <span>🛡️</span>
+                      <span>{lang === 'bn' ? '১-ক্লিকে অ্যাডমিন লগইন' : '1-Click Admin Login'}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => login('member_demo@1social.com', 'demo12345')}
+                      className="py-2 px-2.5 rounded-xl bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 border border-indigo-300/40 dark:border-indigo-700/40 text-[11px] font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                    >
+                      <span>👤</span>
+                      <span>{lang === 'bn' ? '১-ক্লিকে মেম্বার লগইন' : '1-Click Member Login'}</span>
+                    </button>
+                  </div>
+
                   <div className="relative flex items-center justify-center">
                     <div className="border-t border-neutral-200 dark:border-neutral-800 w-full" />
                     <span className="bg-white dark:bg-neutral-900 px-3 text-[11px] text-neutral-400 font-medium uppercase tracking-wider shrink-0">

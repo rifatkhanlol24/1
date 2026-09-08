@@ -640,20 +640,30 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       let cred: UserCredential | null = null;
 
       try {
-        // Try popup sign in first for all platforms
+        // Try popup sign in first
         cred = await signInWithPopup(auth, provider);
       } catch (popupErr: any) {
-        console.warn('[Google Auth] Popup failed or blocked, attempting redirect:', popupErr?.code, popupErr?.message);
+        console.warn('[Google Auth] Popup error:', popupErr?.code, popupErr?.message);
 
         if (
-          popupErr?.code === 'auth/popup-blocked' ||
-          popupErr?.code === 'auth/cancelled-popup-request' ||
           popupErr?.code === 'auth/popup-closed-by-user' ||
-          popupErr?.code === 'auth/internal-error'
+          popupErr?.code === 'auth/cancelled-popup-request'
         ) {
-          // Fallback to redirect when popup is blocked or fails
-          await signInWithRedirect(auth, provider);
-          return true;
+          showToast(
+            lang === 'bn'
+              ? 'গুগল সাইন-ইন পপআপ বন্ধ করা হয়েছে।'
+              : 'Google sign-in popup was closed.'
+          );
+          return false;
+        }
+
+        if (popupErr?.code === 'auth/popup-blocked') {
+          try {
+            await signInWithRedirect(auth, provider);
+            return true;
+          } catch (redErr) {
+            console.error('[Google Redirect Error]', redErr);
+          }
         }
 
         // Re-throw critical errors like auth/unauthorized-domain or auth/operation-not-allowed
@@ -702,15 +712,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       if (err?.code === 'auth/popup-closed-by-user') {
         errorMsg = lang === 'bn' ? 'Google সাইন-ইন উইন্ডো বন্ধ করা হয়েছে।' : 'Sign-in popup was closed.';
       } else if (err?.code === 'auth/popup-blocked') {
-        errorMsg = lang === 'bn' ? 'পপ-আপ ব্লক করা হয়েছে। রিডাইরেক্ট দিয়ে চেষ্টা করুন।' : 'Popup blocked. Retrying with redirect...';
+        errorMsg = lang === 'bn' ? 'পপ-আপ ব্লক করা হয়েছে। ব্রাউজার সেটিংসে পপ-আপ এলাউ করুন।' : 'Popup was blocked by browser.';
       } else if (err?.code === 'auth/cancelled-popup-request') {
         errorMsg = lang === 'bn' ? 'সাইন-ইন অনুরোধ বাতিল হয়েছে।' : 'Sign-in request cancelled.';
       } else if (err?.code === 'auth/operation-not-allowed') {
         errorMsg = lang === 'bn' ? 'Firebase Console-এ Google Provider সক্রিয় করা নেই।' : 'Google provider is not enabled in Firebase Console.';
       } else if (err?.code === 'auth/unauthorized-domain') {
+        const host = typeof window !== 'undefined' ? window.location.hostname : '';
         errorMsg = lang === 'bn'
-          ? 'এই ডোমেইনটি Firebase Auth-এ অনুমোদিত নয় (Firebase Console -> Auth -> Settings -> Authorized Domains-এ এই URL যোগ করুন)।'
-          : 'This domain is not authorized in Firebase Auth Settings.';
+          ? `এই ডোমেইনটি (${host}) Firebase-এ অনুমোদিত নয়। (Firebase Console -> Auth -> Authorized Domains-এ এই ডোমেইনটি যোগ করুন অথবা নিচে ইমেইল দিয়ে রেজিস্টার/লগইন করুন)`
+          : `This domain (${host}) is not authorized in Firebase Auth. Add it to Authorized Domains or sign in with Email below.`;
       }
 
       showToast(errorMsg);
@@ -789,12 +800,27 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     } catch (err: any) {
       console.error('[Firebase Auth Error]', err.code, err.message);
 
+      if (err.code === 'auth/invalid-credential' || err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password') {
+        // Attempt seamless registration if email format and valid password is provided
+        if (clean.includes('@') && password && password.length >= 6) {
+          try {
+            const rawPrefix = clean.split('@')[0];
+            const autoUsername = rawPrefix.replace(/[^a-zA-Z0-9_]/g, '_').slice(0, 15) || `user_${Date.now().toString().slice(-4)}`;
+            const autoName = rawPrefix.replace(/[^a-zA-Z ]/g, ' ').trim() || 'Social Member';
+            const registered = await register(clean, autoUsername, autoName, password);
+            if (registered) return true;
+          } catch {
+            // fall back to error toast
+          }
+        }
+      }
+
       let errorMsg = err.message || (lang === 'bn' ? 'লগইন ব্যর্থ হয়েছে।' : 'Login failed.');
       if (err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password' || err.code === 'auth/user-not-found') {
         errorMsg =
           lang === 'bn'
-            ? 'ভুল ইমেইল/ইউজারনেম বা পাসওয়ার্ড। নতুন একাউন্ট খুলতে Register এ ক্লিক করুন।'
-            : 'Incorrect email/username or password. Click Register to create a new account.';
+            ? 'ভুল ইমেইল/ইউজারনেম বা পাসওয়ার্ড। নতুন অ্যাকাউন্ট খুলতে Register বাটনে ক্লিক করে তথ্য পূরণ করুন।'
+            : 'Incorrect credentials. Click Register to create a new account.';
       } else if (err.code === 'auth/too-many-requests') {
         errorMsg =
           lang === 'bn'
