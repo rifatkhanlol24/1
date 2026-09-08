@@ -11,20 +11,19 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      return isSignedIn() && (
-        request.auth.token.admin == true ||
-        request.auth.token.email == 'rifatkhanlol24@gmail.com' ||
-        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
-      );
+      return isSignedIn() && 
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'admin';
     }
 
     function isModerator() {
-      return isAdmin() || (
-        isSignedIn() &&
-        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'moderator'
-      );
+      return isAdmin(); // Only admins for now
+    }
+
+    // Admins Collection
+    match /admins/{adminId} {
+      allow read: if isSignedIn();
+      allow write: if false; // Only written via Firebase Console
     }
 
     // Users Collection

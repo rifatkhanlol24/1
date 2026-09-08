@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Shield,
   Users,
@@ -27,10 +27,15 @@ import {
   UserCheck,
   Link2,
   Copy,
+  Lock,
+  LogOut
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { UserRole, User, Post } from '../types';
 import { FirebaseConsole } from './FirebaseConsole';
+import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from 'firebase/auth';
+import { getFirestore, doc, getDoc } from 'firebase/firestore';
+import { app } from '../lib/firebase';
 
 export const AdminPanel: React.FC = () => {
   const {
@@ -58,6 +63,142 @@ export const AdminPanel: React.FC = () => {
     lang,
     showToast,
   } = useApp();
+
+  const [isAdminVerified, setIsAdminVerified] = useState<boolean | null>(null);
+  const [authEmail, setAuthEmail] = useState('');
+  const [authPassword, setAuthPassword] = useState('');
+  const [authError, setAuthError] = useState('');
+  const [isAuthenticating, setIsAuthenticating] = useState(false);
+
+  useEffect(() => {
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        try {
+          const adminDoc = await getDoc(doc(db, 'admins', user.uid));
+          if (adminDoc.exists() && adminDoc.data().role === 'admin') {
+            setIsAdminVerified(true);
+          } else {
+            setIsAdminVerified(false);
+          }
+        } catch (err) {
+          console.error("Error verifying admin:", err);
+          setIsAdminVerified(false);
+        }
+      } else {
+        setIsAdminVerified(false);
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  const handleAdminLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsAuthenticating(true);
+    setAuthError('');
+    try {
+      const auth = getAuth(app);
+      await signInWithEmailAndPassword(auth, authEmail, authPassword);
+      // onAuthStateChanged will handle the rest
+    } catch (err: any) {
+      console.error(err);
+      setAuthError(err.message || 'Authentication failed');
+      setIsAuthenticating(false);
+    }
+  };
+
+  const handleAdminLogout = async () => {
+    try {
+      const auth = getAuth(app);
+      await signOut(auth);
+      showToast('Admin logged out securely.');
+    } catch (err) {
+      console.error('Logout error:', err);
+    }
+  };
+
+  if (isAdminVerified === null) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[50vh] space-y-4">
+        <div className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+        <p className="text-sm font-semibold text-neutral-500">Verifying Admin Access via Firebase...</p>
+      </div>
+    );
+  }
+
+  if (isAdminVerified === false) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[50vh] p-4">
+        <div className="w-full max-w-md p-6 bg-white dark:bg-neutral-900 border border-red-200 dark:border-red-900/50 rounded-3xl shadow-xl space-y-6">
+          <div className="flex flex-col items-center text-center space-y-2">
+            <div className="w-16 h-16 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mb-2">
+              <Lock className="w-8 h-8 text-red-600 dark:text-red-400" />
+            </div>
+            <h2 className="text-xl font-bold text-neutral-900 dark:text-neutral-100">Secure Admin Login</h2>
+            <p className="text-xs text-neutral-500 dark:text-neutral-400">
+              Only authorized Firebase Accounts can access this panel.
+            </p>
+          </div>
+
+          <form onSubmit={handleAdminLogin} className="space-y-4">
+            {authError && (
+              <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl text-xs text-red-600 dark:text-red-400">
+                {authError}
+              </div>
+            )}
+            <div>
+              <label className="text-xs font-semibold text-neutral-700 dark:text-neutral-300 block mb-1">Firebase Email</label>
+              <input
+                type="email"
+                value={authEmail}
+                onChange={(e) => setAuthEmail(e.target.value)}
+                className="w-full text-sm p-3 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:ring-2 focus:ring-red-500"
+                required
+              />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-neutral-700 dark:text-neutral-300 block mb-1">Password</label>
+              <input
+                type="password"
+                value={authPassword}
+                onChange={(e) => setAuthPassword(e.target.value)}
+                className="w-full text-sm p-3 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:ring-2 focus:ring-red-500"
+                required
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={isAuthenticating}
+              className="w-full py-3 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-sm shadow-md flex items-center justify-center gap-2 transition-colors disabled:opacity-70"
+            >
+              {isAuthenticating ? (
+                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <>
+                  <ShieldCheck className="w-5 h-5" />
+                  <span>Authenticate as Admin</span>
+                </>
+              )}
+            </button>
+          </form>
+
+          <button
+            onClick={() => {
+              const auth = getAuth(app);
+              signOut(auth);
+              setActiveTab('feed');
+            }}
+            className="w-full py-2 text-xs font-semibold text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200 text-center"
+          >
+            Return to Feed
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   const [activeSubTab, setActiveSubTab] = useState<
     'firebase' | 'users' | 'verification' | 'automation' | 'moderation' | 'broadcast'
@@ -321,10 +462,19 @@ export const AdminPanel: React.FC = () => {
         </div>
 
         {/* Verified Admin Info Badge */}
-        <div className="bg-neutral-800/90 p-3.5 rounded-2xl border border-neutral-700/80 text-xs shrink-0 shadow-sm space-y-1">
-          <p className="text-[10px] uppercase font-bold text-neutral-400 flex items-center gap-1">
-            <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-            <span>{lang === 'bn' ? 'লগইনকৃত অ্যাডমিন:' : 'Active Administrator:'}</span>
+        <div className="bg-neutral-800/90 p-3.5 rounded-2xl border border-neutral-700/80 text-xs shrink-0 shadow-sm space-y-2">
+          <p className="text-[10px] uppercase font-bold text-neutral-400 flex items-center justify-between">
+            <span className="flex items-center gap-1">
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+              <span>{lang === 'bn' ? 'লগইনকৃত অ্যাডমিন:' : 'Active Administrator:'}</span>
+            </span>
+            <button
+              onClick={handleAdminLogout}
+              className="flex items-center gap-1 text-[10px] text-red-400 hover:text-red-300 font-bold ml-4 bg-red-500/10 hover:bg-red-500/20 px-2 py-0.5 rounded-md transition-colors"
+            >
+              <LogOut className="w-3 h-3" />
+              Sign Out
+            </button>
           </p>
           <div className="flex items-center gap-2">
             <span className="px-2 py-0.5 rounded-md font-black uppercase text-[10px] bg-amber-500 text-neutral-950 shadow-xs">
