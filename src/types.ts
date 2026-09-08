@@ -1,21 +1,46 @@
 export type UserRole = 'admin' | 'moderator' | 'user';
 
+export interface ProfileLink {
+  id: string;
+  title: string;
+  url: string;
+}
+
 export interface User {
   id: string;
   email: string;
+  password?: string;
   username: string;
+  usernameChangeCount?: number; // Maximum 10 times for regular users
   fullName: string;
   avatar: string;
   coverImage: string;
   bio: string;
   location?: string;
   website?: string;
+  links?: ProfileLink[]; // Up to 10 links
   statusBadge?: string;
   role: UserRole;
   isVerified: boolean;
+  isVip?: boolean;
+  badge?: 'VIP' | 'Verified' | 'None';
   isBanned: boolean;
+  isBot?: boolean;
   followers: string[]; // user IDs
   following: string[]; // user IDs
+  createdAt: string;
+}
+
+export interface VerificationRequest {
+  id: string;
+  userId: string;
+  username: string;
+  fullName: string;
+  avatar: string;
+  type: 'Verify' | 'VIP';
+  reason: string;
+  socialLink?: string;
+  status: 'pending' | 'approved' | 'rejected';
   createdAt: string;
 }
 

@@ -3,11 +3,14 @@ import confetti from 'canvas-confetti';
 import {
   User,
   Post,
+  PostComment,
   Message,
   Conversation,
   AppNotification,
   PhotoFilter,
   UserRole,
+  VerificationRequest,
+  ProfileLink,
 } from '../types';
 import {
   INITIAL_USERS,
@@ -30,12 +33,27 @@ interface AppContextType {
   // Current user & Auth
   currentUser: User | null;
   users: User[];
-  login: (email: string) => boolean;
-  register: (email: string, username: string, fullName: string) => boolean;
+  login: (emailOrUsername: string, password?: string) => boolean;
+  register: (email: string, username: string, fullName: string, password?: string) => boolean;
   logout: () => void;
   switchUser: (userId: string) => void;
   updateProfile: (data: Partial<User>) => void;
   toggleFollow: (targetUserId: string) => void;
+  changeEmailAndPassword: (newEmail: string, newPassword?: string) => boolean;
+  resetPasswordByUsernameOrEmail: (identifier: string, newPassword: string) => { success: boolean; message: string };
+
+  // Verification
+  verificationRequests: VerificationRequest[];
+  requestVerification: (type: 'Verify' | 'VIP', reason: string, socialLink?: string) => void;
+  adminApproveVerification: (requestId: string) => void;
+  adminRejectVerification: (requestId: string) => void;
+
+  // Bot Engine & Growth Automation
+  botPoolTotal: number;
+  botPoolSent: number;
+  adminSendBotFollowers: (targetUsername: string, count: number) => { success: boolean; addedCount: number; message: string };
+  adminSendAutoLikes: (postIdentifier: string, count: number) => { success: boolean; addedCount: number; message: string };
+  adminSendAutoComments: (postIdentifier: string, count: number, customCommentText?: string) => { success: boolean; addedCount: number; message: string };
 
   // Posts
   posts: Post[];
@@ -72,6 +90,8 @@ interface AppContextType {
   adminChangeRole: (userId: string, role: UserRole) => void;
   adminDeleteUser: (userId: string) => void;
   adminBroadcastNotification: (title: string, message: string) => void;
+  adminSendNotification: (target: 'all' | string, title: string, message: string) => void;
+  adminUpdateAnyUser: (userId: string, updates: Partial<User>) => void;
 
   // Search & Navigation
   searchQuery: string;
@@ -181,6 +201,45 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [selectedUserProfileId, setSelectedUserProfileId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
 
+  // 1 Million Bot Pool Stats
+  const botPoolTotal = 1000000;
+  const [botPoolSent, setBotPoolSent] = useState<number>(() => {
+    const saved = localStorage.getItem('vc_bot_sent');
+    return saved ? parseInt(saved, 10) : 48500;
+  });
+
+  // Verification Requests state
+  const [verificationRequests, setVerificationRequests] = useState<VerificationRequest[]>(() => {
+    const saved = localStorage.getItem('vc_verification_reqs');
+    if (saved) return JSON.parse(saved);
+    return [
+      {
+        id: 'vr-1',
+        userId: 'user-4',
+        username: 'maya_nomad',
+        fullName: 'Maya Chowdhury',
+        avatar: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=400&auto=format&fit=crop&q=80',
+        type: 'VIP',
+        reason: 'Travel documentarian with 50K+ readers. Requesting VIP gold creator badge.',
+        socialLink: 'https://nomadmaya.blog',
+        status: 'pending',
+        createdAt: new Date(Date.now() - 3600000 * 4).toISOString(),
+      },
+      {
+        id: 'vr-2',
+        userId: 'user-5',
+        username: 'arman_artisan',
+        fullName: 'Arman Hossain',
+        avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400&auto=format&fit=crop&q=80',
+        type: 'Verify',
+        reason: 'Verified digital creator & UI designer. Requesting blue checkmark verification.',
+        socialLink: 'https://dribbble.com/arman',
+        status: 'pending',
+        createdAt: new Date(Date.now() - 3600000 * 18).toISOString(),
+      },
+    ];
+  });
+
   // Modals state
   const [isCreateModalOpen, setIsCreateModalOpen] = useState<boolean>(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
@@ -225,6 +284,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   }, [notifications]);
 
   useEffect(() => {
+    localStorage.setItem('vc_verification_reqs', JSON.stringify(verificationRequests));
+  }, [verificationRequests]);
+
+  useEffect(() => {
+    localStorage.setItem('vc_bot_sent', String(botPoolSent));
+  }, [botPoolSent]);
+
+  useEffect(() => {
     localStorage.setItem('vc_dark_mode', String(darkMode));
     if (darkMode) {
       document.documentElement.classList.add('dark');
@@ -236,6 +303,33 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   useEffect(() => {
     localStorage.setItem('vc_lang', lang);
   }, [lang]);
+
+  // Handle URL query parameter ?u=username to view shared user profile directly
+  useEffect(() => {
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      const userParam = urlParams.get('u') || urlParams.get('user');
+      if (userParam) {
+        const found = users.find(
+          (u) => u.username.toLowerCase() === userParam.toLowerCase().replace(/^@/, '')
+        );
+        if (found) {
+          setSelectedUserProfileId(found.id);
+          setActiveTab('profile');
+        }
+      }
+      const postParam = urlParams.get('post') || urlParams.get('p');
+      if (postParam) {
+        const foundPost = posts.find((p) => p.id === postParam);
+        if (foundPost) {
+          setSearchQuery(foundPost.id);
+          setActiveTab('explore');
+        }
+      }
+    } catch {
+      // URL parsing fallback
+    }
+  }, [users, posts]);
 
   const currentUser = users.find((u) => u.id === currentUserId) || users[0] || null;
 
@@ -250,11 +344,18 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   // Auth Operations
-  const login = (email: string): boolean => {
-    const found = users.find((u) => u.email.toLowerCase() === email.toLowerCase());
+  const login = (emailOrUsername: string, password?: string): boolean => {
+    const clean = emailOrUsername.trim().toLowerCase();
+    const found = users.find(
+      (u) => u.email.toLowerCase() === clean || u.username.toLowerCase() === clean
+    );
     if (found) {
       if (found.isBanned) {
         showToast(lang === 'bn' ? 'আপনার অ্যাকাউন্টটি স্থগিত (Banned) করা হয়েছে।' : 'Your account has been banned.');
+        return false;
+      }
+      if (password && found.password && found.password !== password) {
+        showToast(lang === 'bn' ? 'ভুল পাসওয়ার্ড! দয়া করে সঠিক পাসওয়ার্ড দিন।' : 'Incorrect password! Please try again.');
         return false;
       }
       setCurrentUserId(found.id);
@@ -263,11 +364,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       return true;
     }
     // Auto register demo if unknown email
-    const newUsername = email.split('@')[0].replace(/[^a-zA-Z0-9_]/g, '_') + Math.floor(Math.random() * 90 + 10);
+    const newUsername = clean.includes('@')
+      ? clean.split('@')[0].replace(/[^a-zA-Z0-9_]/g, '_') + Math.floor(Math.random() * 90 + 10)
+      : clean.replace(/[^a-zA-Z0-9_]/g, '_');
     const newUser: User = {
       id: `user-${Date.now()}`,
-      email,
+      email: clean.includes('@') ? clean : `${clean}@example.com`,
+      password: password || 'password123',
       username: newUsername,
+      usernameChangeCount: 0,
       fullName: newUsername.replace(/_/g, ' ').toUpperCase(),
       avatar: `https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=400&auto=format&fit=crop&q=80`,
       coverImage: 'https://images.unsplash.com/photo-1579546929518-9e396f3cc809?w=1200&auto=format&fit=crop&q=80',
@@ -286,8 +391,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     return true;
   };
 
-  const register = (email: string, username: string, fullName: string): boolean => {
-    const exists = users.find((u) => u.email.toLowerCase() === email.toLowerCase() || u.username.toLowerCase() === username.toLowerCase());
+  const register = (email: string, username: string, fullName: string, password?: string): boolean => {
+    const exists = users.find(
+      (u) =>
+        u.email.toLowerCase() === email.toLowerCase() ||
+        u.username.toLowerCase() === username.toLowerCase()
+    );
     if (exists) {
       showToast(lang === 'bn' ? 'এই ইমেইল অথবা ইউজারনেম ইতোমধ্যে ব্যবহৃত হচ্ছে।' : 'Email or username already in use.');
       return false;
@@ -295,7 +404,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const newUser: User = {
       id: `user-${Date.now()}`,
       email,
+      password: password || 'password123',
       username: username.toLowerCase().replace(/[^a-zA-Z0-9_]/g, ''),
+      usernameChangeCount: 0,
       fullName: fullName.trim(),
       avatar: `https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=400&auto=format&fit=crop&q=80`,
       coverImage: 'https://images.unsplash.com/photo-1579546929518-9e396f3cc809?w=1200&auto=format&fit=crop&q=80',
@@ -316,7 +427,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const logout = () => {
     showToast(lang === 'bn' ? 'লগআউট সফল হয়েছে।' : 'Logged out successfully.');
-    // switch to first available user or keep current session
   };
 
   const switchUser = (userId: string) => {
@@ -327,12 +437,223 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   };
 
+  // Change Email & Password for logged in user
+  const changeEmailAndPassword = (newEmail: string, newPassword?: string): boolean => {
+    if (!currentUser) return false;
+    const cleanEmail = newEmail.trim().toLowerCase();
+    const emailConflict = users.find(
+      (u) => u.id !== currentUser.id && u.email.toLowerCase() === cleanEmail
+    );
+    if (emailConflict) {
+      showToast(lang === 'bn' ? 'এই ইমেইল ঠিকানাটি অন্য একটি অ্যাকাউন্টে ব্যবহৃত হচ্ছে।' : 'This email address is already in use.');
+      return false;
+    }
+    setUsers((prev) =>
+      prev.map((u) => {
+        if (u.id === currentUser.id) {
+          return {
+            ...u,
+            email: cleanEmail,
+            password: newPassword && newPassword.trim() ? newPassword.trim() : u.password,
+          };
+        }
+        return u;
+      })
+    );
+    showToast(lang === 'bn' ? 'ইমেইল ও পাসওয়ার্ড সফলভাবে আপডেট করা হয়েছে!' : 'Email & password updated successfully!');
+    return true;
+  };
+
+  // Reset Password via Username OR Email
+  const resetPasswordByUsernameOrEmail = (identifier: string, newPassword: string): { success: boolean; message: string } => {
+    const clean = identifier.trim().toLowerCase().replace(/^@/, '');
+    const target = users.find(
+      (u) => u.email.toLowerCase() === clean || u.username.toLowerCase() === clean
+    );
+    if (!target) {
+      return {
+        success: false,
+        message: lang === 'bn' ? 'এই ইউজারনেম বা ইমেইল দিয়ে কোনো অ্যাকাউন্ট খুঁজে পাওয়া যায়নি।' : 'No account found with this username or email.',
+      };
+    }
+    if (!newPassword || newPassword.length < 4) {
+      return {
+        success: false,
+        message: lang === 'bn' ? 'নতুন পাসওয়ার্ড কমপক্ষে ৪ অক্ষরের হতে হবে।' : 'Password must be at least 4 characters long.',
+      };
+    }
+    setUsers((prev) =>
+      prev.map((u) => (u.id === target.id ? { ...u, password: newPassword } : u))
+    );
+    return {
+      success: true,
+      message: lang === 'bn'
+        ? `@${target.username} এর পাসওয়ার্ড সফলভাবে রিসেট হয়েছে! এখন নতুন পাসওয়ার্ড দিয়ে লগইন করুন।`
+        : `Password reset successfully for @${target.username}! You can now login with your new password.`,
+    };
+  };
+
+  // Profile Update with 10-time Username Change limit & Max 10 Links
   const updateProfile = (data: Partial<User>) => {
     if (!currentUser) return;
+
+    let finalData = { ...data };
+
+    // Check if username is being changed
+    if (
+      finalData.username &&
+      finalData.username.toLowerCase() !== currentUser.username.toLowerCase()
+    ) {
+      const currentCount = currentUser.usernameChangeCount || 0;
+      if (currentCount >= 10 && currentUser.role !== 'admin') {
+        showToast(
+          lang === 'bn'
+            ? 'আপনি ইতিমধ্যে ১০ বার ইউজারনেম পরিবর্তন করেছেন। আর পরিবর্তন করা সম্ভব নয়!'
+            : 'You have already changed your username 10 times. Maximum limit reached!'
+        );
+        return;
+      }
+      const cleanUsername = finalData.username
+        .toLowerCase()
+        .replace(/[^a-zA-Z0-9_]/g, '');
+      if (cleanUsername.length < 3) {
+        showToast(
+          lang === 'bn' ? 'ইউজারনেম কমপক্ষে ৩ অক্ষরের হতে হবে।' : 'Username must be at least 3 characters.'
+        );
+        return;
+      }
+      const isTaken = users.some(
+        (u) => u.id !== currentUser.id && u.username.toLowerCase() === cleanUsername
+      );
+      if (isTaken) {
+        showToast(
+          lang === 'bn' ? 'এই ইউজারনেমটি ইতিমধ্যে অন্য কেউ ব্যবহার করছেন।' : 'This username is already taken.'
+        );
+        return;
+      }
+
+      finalData.username = cleanUsername;
+      if (currentUser.role !== 'admin') {
+        finalData.usernameChangeCount = currentCount + 1;
+      }
+    }
+
+    // Limit links to 10 max
+    if (finalData.links && finalData.links.length > 10) {
+      finalData.links = finalData.links.slice(0, 10);
+    }
+
     setUsers((prev) =>
-      prev.map((u) => (u.id === currentUser.id ? { ...u, ...data } : u))
+      prev.map((u) => (u.id === currentUser.id ? { ...u, ...finalData } : u))
     );
     showToast(lang === 'bn' ? 'প্রোফাইল সফলভাবে আপডেট হয়েছে!' : 'Profile updated successfully!');
+  };
+
+  // Verification requests by users
+  const requestVerification = (type: 'Verify' | 'VIP', reason: string, socialLink?: string) => {
+    if (!currentUser) return;
+    const existingPending = verificationRequests.find(
+      (r) => r.userId === currentUser.id && r.status === 'pending'
+    );
+    if (existingPending) {
+      showToast(
+        lang === 'bn'
+          ? 'আপনার একটি আবেদন ইতোমধ্যে অ্যাডমিনের পর্যালোচনায় পেন্ডিং রয়েছে।'
+          : 'You already have a pending verification request.'
+      );
+      return;
+    }
+
+    const newReq: VerificationRequest = {
+      id: `vr-${Date.now()}`,
+      userId: currentUser.id,
+      username: currentUser.username,
+      fullName: currentUser.fullName,
+      avatar: currentUser.avatar,
+      type,
+      reason: reason.trim(),
+      socialLink: socialLink?.trim(),
+      status: 'pending',
+      createdAt: new Date().toISOString(),
+    };
+
+    setVerificationRequests((prev) => [newReq, ...prev]);
+    showToast(
+      lang === 'bn'
+        ? `${type === 'VIP' ? 'VIP ব্যাজ' : 'Verify ব্লু ব্যাজ'} এর আবেদন সফলভাবে অ্যাডমিনের কাছে পাঠানো হয়েছে!`
+        : `${type} badge request submitted for admin review!`
+    );
+  };
+
+  const adminApproveVerification = (requestId: string) => {
+    const req = verificationRequests.find((r) => r.id === requestId);
+    if (!req) return;
+
+    setUsers((prev) =>
+      prev.map((u) => {
+        if (u.id === req.userId) {
+          if (req.type === 'VIP') {
+            return {
+              ...u,
+              isVip: true,
+              badge: 'VIP',
+              isVerified: true,
+            };
+          } else {
+            return {
+              ...u,
+              isVerified: true,
+              badge: 'Verified',
+            };
+          }
+        }
+        return u;
+      })
+    );
+
+    setVerificationRequests((prev) =>
+      prev.map((r) => (r.id === requestId ? { ...r, status: 'approved' } : r))
+    );
+
+    sendInAppNotification({
+      userId: req.userId,
+      actorId: 'admin',
+      actorName: '🛡️ 1 social Official Admin',
+      actorUsername: 'admin_team',
+      actorAvatar: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=400&auto=format&fit=crop&q=80',
+      type: 'system',
+      text:
+        lang === 'bn'
+          ? `অভিনন্দন! আপনার ${req.type === 'VIP' ? '👑 VIP ব্যাজ' : '🔵 ব্লু ভেরিফিকেশন'} আবেদন অনুমোদিত হয়েছে!`
+          : `Congratulations! Your ${req.type} badge verification request has been approved!`,
+    });
+
+    confetti({ particleCount: 80, spread: 70, origin: { y: 0.6 } });
+    showToast(lang === 'bn' ? 'ভেরিফিকেশন আবেদন অনুমোদিত হয়েছে!' : 'Verification request approved!');
+  };
+
+  const adminRejectVerification = (requestId: string) => {
+    const req = verificationRequests.find((r) => r.id === requestId);
+    if (!req) return;
+
+    setVerificationRequests((prev) =>
+      prev.map((r) => (r.id === requestId ? { ...r, status: 'rejected' } : r))
+    );
+
+    sendInAppNotification({
+      userId: req.userId,
+      actorId: 'admin',
+      actorName: '🛡️ 1 social Official Admin',
+      actorUsername: 'admin_team',
+      actorAvatar: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=400&auto=format&fit=crop&q=80',
+      type: 'system',
+      text:
+        lang === 'bn'
+          ? `আপনার ${req.type} ব্যাজ আবেদনটি পর্যালোচনা শেষে নামঞ্জুর করা হয়েছে। বিস্তারিত তথ্যের জন্য যোগাযোগ করুন।`
+          : `Your ${req.type} badge verification request has been declined after review.`,
+    });
+
+    showToast(lang === 'bn' ? 'আবেদন প্রত্যাখ্যান করা হয়েছে।' : 'Request rejected.');
   };
 
   const toggleFollow = (targetUserId: string) => {
@@ -775,18 +1096,272 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const adminBroadcastNotification = (title: string, messageText: string) => {
-    users.forEach((u) => {
+    adminSendNotification('all', title, messageText);
+  };
+
+  // Admin Notification: send to all OR targeted username
+  const adminSendNotification = (target: 'all' | string, title: string, messageText: string) => {
+    if (target === 'all') {
+      users.forEach((u) => {
+        sendInAppNotification({
+          userId: u.id,
+          actorId: currentUser?.id || 'admin',
+          actorName: '📢 Platform Admin',
+          actorUsername: 'admin_broadcast',
+          actorAvatar: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=400&auto=format&fit=crop&q=80',
+          type: 'system',
+          text: `${title}: ${messageText}`,
+        });
+      });
+      showToast(lang === 'bn' ? 'সকল ব্যবহারকারীর কাছে নোটিফিকেশন পাঠানো হয়েছে!' : 'Broadcast sent to all users!');
+    } else {
+      const clean = target.trim().toLowerCase().replace(/^@/, '');
+      const targetUser = users.find((u) => u.username.toLowerCase() === clean);
+      if (!targetUser) {
+        showToast(lang === 'bn' ? `ইউজারনেম @${clean} পাওয়া যায়নি!` : `User @${clean} not found!`);
+        return;
+      }
       sendInAppNotification({
-        userId: u.id,
+        userId: targetUser.id,
         actorId: currentUser?.id || 'admin',
-        actorName: '📢 Platform Admin',
-        actorUsername: 'admin_broadcast',
+        actorName: '📢 Platform Admin (Direct Notice)',
+        actorUsername: 'admin_notice',
         actorAvatar: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=400&auto=format&fit=crop&q=80',
         type: 'system',
         text: `${title}: ${messageText}`,
       });
+      showToast(lang === 'bn' ? `@${targetUser.username} এর কাছে নোটিশ পাঠানো হয়েছে!` : `Notice sent to @${targetUser.username}!`);
+    }
+  };
+
+  // Admin Master Override: update ANY user data directly
+  const adminUpdateAnyUser = (userId: string, updates: Partial<User>) => {
+    setUsers((prev) =>
+      prev.map((u) => (u.id === userId ? { ...u, ...updates } : u))
+    );
+    showToast(lang === 'bn' ? 'ইউজারের সমস্ত তথ্য সফলভাবে অ্যাডমিন কর্তৃক পরিবর্তিত হয়েছে!' : 'User details successfully updated by Admin!');
+  };
+
+  // 1 Million Bot Engine: Send followers with default blogspot link
+  const adminSendBotFollowers = (
+    targetUsername: string,
+    count: number
+  ): { success: boolean; addedCount: number; message: string } => {
+    const clean = targetUsername.trim().toLowerCase().replace(/^@/, '');
+    const targetUser = users.find((u) => u.username.toLowerCase() === clean);
+    if (!targetUser) {
+      return {
+        success: false,
+        addedCount: 0,
+        message: lang === 'bn' ? 'টার্গেট ইউজারনেম খুঁজে পাওয়া যায়নি।' : 'Target username not found.',
+      };
+    }
+
+    const safeCount = Math.min(Math.max(1, count), 100000);
+    const newBots: User[] = [];
+    const newFollowerIds: string[] = [];
+
+    // Bot avatars pool
+    const botPhotos = [
+      '1534528741775-53994a69daeb',
+      '1507003211169-0a1dd7228f2d',
+      '1494790108377-be9c29b29330',
+      '1500648767791-00dcc994a43e',
+      '1517841905240-472988babdf9',
+      '1539571696357-5a69c17a67c6',
+    ];
+
+    for (let i = 0; i < Math.min(safeCount, 25); i++) {
+      const rand = Math.floor(10000 + Math.random() * 90000);
+      const photoId = botPhotos[i % botPhotos.length];
+      const botId = `bot-${Date.now()}-${i}-${rand}`;
+      newBots.push({
+        id: botId,
+        email: `bot_${rand}@techlystb.com`,
+        username: `bot_tech_${rand}`,
+        fullName: `AI Booster #${rand % 1000}`,
+        avatar: `https://images.unsplash.com/photo-${photoId}?w=200&auto=format&fit=crop&q=80`,
+        coverImage: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&auto=format&fit=crop&q=80',
+        bio: 'Official bot booster account 🤖 Powered by TechLystB & 1 social',
+        website: 'https://techlystb.blogspot.com',
+        links: [{ id: `b-l-${i}-1`, title: 'Tech Lyst B', url: 'https://techlystb.blogspot.com' }],
+        role: 'user',
+        isVerified: false,
+        isBanned: false,
+        isBot: true,
+        followers: [],
+        following: [targetUser.id],
+        createdAt: new Date().toISOString(),
+      });
+      newFollowerIds.push(botId);
+    }
+
+    // For any remaining up to safeCount, generate mock follower IDs
+    for (let i = newFollowerIds.length; i < safeCount; i++) {
+      newFollowerIds.push(`bot-id-${Date.now()}-${i}`);
+    }
+
+    setUsers((prev) => {
+      const updated = prev.map((u) => {
+        if (u.id === targetUser.id) {
+          return {
+            ...u,
+            followers: [...new Set([...u.followers, ...newFollowerIds])],
+          };
+        }
+        return u;
+      });
+      return [...updated, ...newBots];
     });
-    showToast(lang === 'bn' ? 'সকল ব্যবহারকারীর কাছে নোটিফিকেশন ব্রডকাস্ট করা হয়েছে!' : 'Broadcast notification sent to all users!');
+
+    setBotPoolSent((prev) => prev + safeCount);
+
+    sendInAppNotification({
+      userId: targetUser.id,
+      actorId: 'admin',
+      actorName: '🚀 1 social Growth Booster',
+      actorUsername: 'bot_booster',
+      actorAvatar: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=400&auto=format&fit=crop&q=80',
+      type: 'system',
+      text:
+        lang === 'bn'
+          ? `অভিনন্দন! আপনার প্রোফাইলে +${safeCount.toLocaleString()} টি নতুন ফলোয়ার যুক্ত হয়েছে!`
+          : `Congratulations! +${safeCount.toLocaleString()} new followers added to your profile!`,
+    });
+
+    return {
+      success: true,
+      addedCount: safeCount,
+      message:
+        lang === 'bn'
+          ? `@${targetUser.username} এর অ্যাকাউন্টে ${safeCount.toLocaleString()} টি বট ফলোয়ার সফলভাবে যোগ করা হয়েছে!`
+          : `Successfully sent ${safeCount.toLocaleString()} bot followers to @${targetUser.username}!`,
+    };
+  };
+
+  // Admin Auto Likes with Post URL or ID
+  const adminSendAutoLikes = (
+    postIdentifier: string,
+    count: number
+  ): { success: boolean; addedCount: number; message: string } => {
+    let postId = postIdentifier.trim();
+    if (postId.includes('post=')) {
+      const match = postId.match(/post=([a-zA-Z0-9_-]+)/);
+      if (match) postId = match[1];
+    } else if (postId.includes('/post/')) {
+      const parts = postId.split('/post/');
+      if (parts[1]) postId = parts[1].split(/[?#]/)[0];
+    }
+
+    const targetPost = posts.find(
+      (p) => p.id === postId || p.id.toLowerCase() === postId.toLowerCase()
+    );
+    if (!targetPost) {
+      return {
+        success: false,
+        addedCount: 0,
+        message: lang === 'bn' ? 'পোস্ট খুঁজে পাওয়া যায়নি! সঠিক পোস্ট লিঙ্ক বা আইডি দিন।' : 'Post not found! Check post link or ID.',
+      };
+    }
+
+    const safeCount = Math.min(Math.max(1, count), 25000);
+    const botLikes: string[] = [];
+    for (let i = 0; i < safeCount; i++) {
+      botLikes.push(`bot-liker-${Date.now()}-${i}`);
+    }
+
+    setPosts((prev) =>
+      prev.map((p) =>
+        p.id === targetPost.id
+          ? { ...p, likes: [...new Set([...p.likes, ...botLikes])] }
+          : p
+      )
+    );
+
+    return {
+      success: true,
+      addedCount: safeCount,
+      message:
+        lang === 'bn'
+          ? `পোস্টে সফলভাবে ${safeCount.toLocaleString()} টি অটো লাইক যুক্ত করা হয়েছে!`
+          : `Successfully added ${safeCount.toLocaleString()} auto likes to post!`,
+    };
+  };
+
+  // Admin Auto Comments with Post URL or ID
+  const adminSendAutoComments = (
+    postIdentifier: string,
+    count: number,
+    customCommentText?: string
+  ): { success: boolean; addedCount: number; message: string } => {
+    let postId = postIdentifier.trim();
+    if (postId.includes('post=')) {
+      const match = postId.match(/post=([a-zA-Z0-9_-]+)/);
+      if (match) postId = match[1];
+    } else if (postId.includes('/post/')) {
+      const parts = postId.split('/post/');
+      if (parts[1]) postId = parts[1].split(/[?#]/)[0];
+    }
+
+    const targetPost = posts.find(
+      (p) => p.id === postId || p.id.toLowerCase() === postId.toLowerCase()
+    );
+    if (!targetPost) {
+      return {
+        success: false,
+        addedCount: 0,
+        message: lang === 'bn' ? 'পোস্ট খুঁজে পাওয়া যায়নি! সঠিক পোস্ট লিঙ্ক বা আইডি দিন।' : 'Post not found! Check post link or ID.',
+      };
+    }
+
+    const templates = [
+      'Amazing post! Really insightful 🔥',
+      'অসাধারণ কাজ! আপনার কনটেন্ট সবসময় সেরা 👏',
+      'Quality & aesthetics are top-tier ✨',
+      'Love the presentation! Keep rocking 🚀',
+      'দারুণ পোস্ট! অনেক ভালো লাগলো 🙌',
+      'Clean interface and inspiring message! 💯',
+    ];
+
+    const safeCount = Math.min(Math.max(1, count), 100);
+    const newComments: PostComment[] = [];
+
+    for (let i = 0; i < safeCount; i++) {
+      const rand = Math.floor(1000 + Math.random() * 9000);
+      const text =
+        customCommentText && customCommentText.trim()
+          ? customCommentText.trim()
+          : templates[i % templates.length];
+
+      newComments.push({
+        id: `bot-cm-${Date.now()}-${i}-${rand}`,
+        postId: targetPost.id,
+        authorId: `bot-user-${rand}`,
+        authorName: `Bot Member #${rand % 400}`,
+        authorUsername: `bot_vibes_${rand}`,
+        authorAvatar: `https://images.unsplash.com/photo-${1534528741775 + (rand % 10000)}?w=200&auto=format&fit=crop&q=80`,
+        content: text,
+        createdAt: new Date().toISOString(),
+        likes: [],
+      });
+    }
+
+    setPosts((prev) =>
+      prev.map((p) =>
+        p.id === targetPost.id
+          ? { ...p, comments: [...p.comments, ...newComments] }
+          : p
+      )
+    );
+
+    return {
+      success: true,
+      addedCount: safeCount,
+      message:
+        lang === 'bn'
+          ? `পোস্টে সফলভাবে ${safeCount} টি অটো কমেন্ট পোস্ট করা হয়েছে!`
+          : `Successfully added ${safeCount} auto comments to post!`,
+    };
   };
 
   return (
@@ -800,6 +1375,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         switchUser,
         updateProfile,
         toggleFollow,
+        changeEmailAndPassword,
+        resetPasswordByUsernameOrEmail,
+        verificationRequests,
+        requestVerification,
+        adminApproveVerification,
+        adminRejectVerification,
+        botPoolTotal,
+        botPoolSent,
+        adminSendBotFollowers,
+        adminSendAutoLikes,
+        adminSendAutoComments,
         posts,
         createPost,
         editPost,
@@ -828,6 +1414,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         adminChangeRole,
         adminDeleteUser,
         adminBroadcastNotification,
+        adminSendNotification,
+        adminUpdateAnyUser,
         searchQuery,
         setSearchQuery,
         activeTab,
