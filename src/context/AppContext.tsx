@@ -31,6 +31,8 @@ import {
   getRedirectResult,
   signOut,
   UserCredential,
+  setPersistence,
+  browserLocalPersistence,
 } from 'firebase/auth';
 import { ref, get } from 'firebase/database';
 import { app, auth, db } from '../lib/firebase';
@@ -385,9 +387,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   // Hook: Auth Sync Hook
   // Ensures that upon any successful authentication (including Google Auth),
-  // the user profile is either fetched from users/{uid} or initialized in database if missing,
-  // guaranteeing currentUser state object is always synchronized with the database record.
+  // setPersistence guarantees user session is retained across reloads (browserLocalPersistence).
+  // The user profile is either fetched from users/{uid} or initialized in database if missing.
   useEffect(() => {
+    // Apply local persistence to keep user session active after page reloads
+    setPersistence(auth, browserLocalPersistence).catch((err) => {
+      console.warn('[Firebase Auth setPersistence Error]', err?.code, err?.message);
+    });
+
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
         const uid = user.uid;
