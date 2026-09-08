@@ -34,7 +34,6 @@ import { useApp } from '../context/AppContext';
 import { UserRole, User, Post } from '../types';
 import { FirebaseConsole } from './FirebaseConsole';
 import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from 'firebase/auth';
-import { getFirestore, doc, getDoc } from 'firebase/firestore';
 import { app } from '../lib/firebase';
 
 export const AdminPanel: React.FC = () => {
