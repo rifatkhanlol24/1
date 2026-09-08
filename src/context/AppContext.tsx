@@ -24,6 +24,7 @@ import {
   getAuth,
   onAuthStateChanged,
   signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
   GoogleAuthProvider,
   signInWithPopup,
   signOut,
@@ -51,7 +52,7 @@ interface AppContextType {
   removeLoggedInAccount: (userId: string) => void;
   login: (emailOrUsername: string, password?: string) => Promise<boolean>;
   loginWithGoogle: () => Promise<boolean>;
-  register: (email: string, username: string, fullName: string, password?: string) => boolean;
+  register: (email: string, username: string, fullName: string, password?: string) => Promise<boolean>;
   logout: () => void;
   switchUser: (userId: string) => void;
   updateProfile: (data: Partial<User>, targetUserId?: string) => void;
@@ -311,14 +312,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     return defaultUser;
   };
 
-  // Fetch real users from Firestore on mount
+  // Subscribe to real-time users from Realtime Database
   useEffect(() => {
-    firebaseService.getUsers().then((firestoreUsers) => {
-      if (firestoreUsers && firestoreUsers.length > 0) {
+    const unsubscribe = firebaseService.subscribeToUsers((rtUsers) => {
+      if (rtUsers && rtUsers.length > 0) {
         setUsers((prev) => {
           const map = new Map<string, User>();
-          for (const u of firestoreUsers) {
-            map.set(u.id, u);
+          for (const u of rtUsers) {
+            if (u && u.id) {
+              map.set(u.id, u);
+            }
           }
           for (const u of prev) {
             if (!map.has(u.id)) {
@@ -328,9 +331,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           return Array.from(map.values());
         });
       }
-    }).catch((err) => {
-      console.warn('[Firebase] Could not fetch users from Firestore:', err);
     });
+
+    return () => {
+      if (typeof unsubscribe === 'function') {
+        unsubscribe();
+      }
+    };
   }, []);
 
   useEffect(() => {
@@ -781,31 +788,18 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     return true;
   };
 
-  const register = (email: string, username: string, fullName: string, password?: string): boolean => {
+  const register = async (
+    email: string,
+    username: string,
+    fullName: string,
+    password?: string
+  ): Promise<boolean> => {
     const trimmedFullName = fullName.trim();
-    const cleanUsername = username.trim();
+    const cleanUsername = username.trim().toLowerCase().replace(/[^a-z0-9_.-]/g, '_');
+    const trimmedEmail = email.trim();
 
-    // English-only Full Name validation (A-Z, a-z and spaces only - no numbers or special chars)
-    const englishNameRegex = /^[a-zA-Z ]+$/;
-    const hasBengaliChars = /[\u0980-\u09FF]/;
-
-    if (hasBengaliChars.test(trimmedFullName) || !englishNameRegex.test(trimmedFullName) || trimmedFullName.length < 2) {
-      showToast(
-        lang === 'bn'
-          ? 'নাম শুধুমাত্র ইংরেজি অক্ষর (A-Z, a-z) এবং স্পেস হতে পারবে (সংখ্যা, প্রতীক বা বাংলা গ্রহণযোগ্য নয়)।'
-          : 'Name must contain only English letters (A-Z, a-z) and spaces.'
-      );
-      return false;
-    }
-
-    // English-only Username validation
-    const englishUsernameRegex = /^[a-zA-Z0-9_.-]+$/;
-    if (hasBengaliChars.test(cleanUsername) || !englishUsernameRegex.test(cleanUsername)) {
-      showToast(
-        lang === 'bn'
-          ? 'ইউজারনেম শুধুমাত্র ইংরেজি অক্ষরে (a-z, 0-9, _, ., -) হতে হবে।'
-          : 'Username must contain English characters only (a-z, 0-9, _, ., -).'
-      );
+    if (!trimmedFullName || trimmedFullName.length < 2) {
+      showToast(lang === 'bn' ? 'দয়া করে আপনার নাম লিখুন (কমপক্ষে ২ অক্ষর)।' : 'Please enter your name (at least 2 characters).');
       return false;
     }
 
@@ -816,39 +810,78 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     const exists = users.find(
       (u) =>
-        u.email.toLowerCase() === email.toLowerCase() ||
+        u.email.toLowerCase() === trimmedEmail.toLowerCase() ||
         u.username.toLowerCase() === cleanUsername.toLowerCase()
     );
     if (exists) {
       showToast(lang === 'bn' ? 'এই ইমেইল অথবা ইউজারনেম ইতোমধ্যে ব্যবহৃত হচ্ছে।' : 'Email or username already in use.');
       return false;
     }
-    const newUser: User = {
-      id: `user-${Date.now()}`,
-      email,
-      password: password || 'password123',
-      username: cleanUsername,
-      usernameChangeCount: 0,
-      fullName: trimmedFullName,
-      fullNameBn: trimmedFullName,
-      fullNameEn: trimmedFullName,
-      avatar: `https://images.unsplash.com/photo-${1535713875002 + Math.floor(Math.random() * 100)}?w=400&auto=format&fit=crop&q=80`,
-      coverImage: 'https://images.unsplash.com/photo-1579546929518-9e396f3cc809?w=1200&auto=format&fit=crop&q=80',
-      bio: 'Excited to connect and share moments here! 🌟',
-      role: 'user',
-      isVerified: false,
-      isBanned: false,
-      followers: [],
-      following: ['user-admin'],
-      createdAt: new Date().toISOString(),
-    };
-    setUsers((prev) => [newUser, ...prev]);
-    firebaseService.saveUser(newUser).catch(err => console.warn('Failed to save registered user to Firestore:', err));
-    setCurrentUserId(newUser.id);
-    recordLoggedInUser(newUser.id);
-    showToast(lang === 'bn' ? `স্বাগতম ${trimmedFullName}! অ্যাকাউন্ট তৈরি সম্পন্ন।` : `Welcome ${trimmedFullName}! Account created.`);
-    setIsAuthModalOpen(false);
-    return true;
+
+    const pass = password && password.length >= 6 ? password : 'password123';
+
+    try {
+      // 1. Create User in Firebase Authentication
+      const cred = await createUserWithEmailAndPassword(auth, trimmedEmail, pass);
+      const fbUser = cred.user;
+      const uid = fbUser.uid;
+
+      const isAdmin = uid === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3';
+      setIsFirebaseAdmin(isAdmin);
+
+      const newUser: User = {
+        id: uid,
+        email: trimmedEmail,
+        password: pass,
+        username: cleanUsername,
+        usernameChangeCount: 0,
+        fullName: trimmedFullName,
+        fullNameBn: trimmedFullName,
+        fullNameEn: trimmedFullName,
+        avatar: `https://images.unsplash.com/photo-${1535713875002 + Math.floor(Math.random() * 100)}?w=400&auto=format&fit=crop&q=80`,
+        coverImage: 'https://images.unsplash.com/photo-1579546929518-9e396f3cc809?w=1200&auto=format&fit=crop&q=80',
+        bio: 'Excited to connect and share moments here! 🌟',
+        role: isAdmin ? 'admin' : 'user',
+        isVerified: isAdmin,
+        isVip: isAdmin,
+        isBanned: false,
+        followers: [],
+        following: ['UI28ofvzB7cjNJvCG0DvYgbCu9J3'],
+        createdAt: new Date().toISOString(),
+      };
+
+      // 2. Save user profile into Realtime Database at /users/${uid}
+      await firebaseService.saveUser(newUser);
+
+      setUsers((prev) => {
+        const filtered = prev.filter((u) => u.id !== uid);
+        return [newUser, ...filtered];
+      });
+
+      setCurrentUserId(uid);
+      safeLocalStorageSet('vc_current_user_id', uid);
+      recordLoggedInUser(uid);
+
+      showToast(
+        lang === 'bn'
+          ? `স্বাগতম ${trimmedFullName}! অ্যাকাউন্ট তৈরি সম্পন্ন।`
+          : `Welcome ${trimmedFullName}! Account created successfully.`
+      );
+      setIsAuthModalOpen(false);
+      return true;
+    } catch (err: any) {
+      console.error('[Firebase Registration Error]', err?.code, err?.message);
+      let errorMsg = err?.message || (lang === 'bn' ? 'রেজিস্ট্রেশন করতে সমস্যা হয়েছে।' : 'Registration failed.');
+      if (err?.code === 'auth/email-already-in-use') {
+        errorMsg = lang === 'bn' ? 'এই ইমেইল দিয়ে ইতোমধ্যে একটি অ্যাকাউন্ট রয়েছে।' : 'Email is already registered.';
+      } else if (err?.code === 'auth/invalid-email') {
+        errorMsg = lang === 'bn' ? 'ইমেইল ঠিকানাটি সঠিক নয়।' : 'Invalid email format.';
+      } else if (err?.code === 'auth/weak-password') {
+        errorMsg = lang === 'bn' ? 'পাসওয়ার্ড অত্যন্ত দুর্বল (কমপক্ষে ৬ অক্ষর দিন)।' : 'Password should be at least 6 characters.';
+      }
+      showToast(errorMsg);
+      return false;
+    }
   };
 
   const logout = () => {

@@ -4,6 +4,7 @@ import {
   set,
   remove,
   child,
+  onValue,
 } from 'firebase/database';
 import { db } from './firebase';
 import { User, Post, Message, AppNotification } from '../types';
@@ -16,7 +17,7 @@ export const firebaseService = {
       await get(child(dbRef, 'users'));
       return {
         success: true,
-        message: 'Connected to Firebase Realtime Database (social-media1bd)',
+        message: 'Connected to Firebase Realtime Database',
         timestamp: new Date().toISOString(),
       };
     } catch (err: unknown) {
@@ -58,6 +59,33 @@ export const firebaseService = {
     } catch (err) {
       console.warn('Realtime Database getUsers error:', err);
       return [];
+    }
+  },
+
+  // Subscribe to Users in Realtime
+  subscribeToUsers(callback: (users: User[]) => void): () => void {
+    try {
+      const usersRef = ref(db, 'users');
+      const unsubscribe = onValue(usersRef, (snapshot) => {
+        if (snapshot.exists()) {
+          const val = snapshot.val();
+          if (Array.isArray(val)) {
+            callback(val.filter(Boolean));
+          } else if (typeof val === 'object' && val !== null) {
+            callback(Object.values(val) as User[]);
+          } else {
+            callback([]);
+          }
+        } else {
+          callback([]);
+        }
+      }, (err) => {
+        console.warn('Realtime Database subscribeToUsers error:', err);
+      });
+      return unsubscribe;
+    } catch (err) {
+      console.warn('subscribeToUsers setup error:', err);
+      return () => {};
     }
   },
 
