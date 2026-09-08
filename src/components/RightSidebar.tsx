@@ -114,7 +114,7 @@ export const RightSidebar: React.FC = () => {
 
         <div className="space-y-2.5">
           {suggestedUsers.map((u) => {
-            const isFollowing = currentUser ? (currentUser.following || []).includes(u.id) : false;
+            const isFollowing = currentUser?.following.includes(u.id);
             return (
               <div
                 key={u.id}

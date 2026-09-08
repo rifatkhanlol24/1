@@ -38,7 +38,7 @@ export const FeedView: React.FC = () => {
   const filteredPosts = posts.filter((post) => {
     if (feedMode === 'following' && currentUser) {
       return (
-        (currentUser.following || []).includes(post.authorId) ||
+        currentUser.following.includes(post.authorId) ||
         post.authorId === currentUser.id
       );
     }

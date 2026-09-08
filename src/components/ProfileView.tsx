@@ -83,24 +83,24 @@ export const ProfileView: React.FC = () => {
   const isAdmin = isFirebaseAdmin;
   const isMe = currentUser?.id === profileUser.id;
   const canEdit = isMe || isAdmin;
-  const isFollowing = currentUser ? (currentUser.following || []).includes(profileUser.id) : false;
+  const isFollowing = currentUser ? currentUser.following.includes(profileUser.id) : false;
 
   // Filter posts
   const userPosts = posts.filter((p) => p.authorId === profileUser.id);
-  const likedPosts = posts.filter((p) => (p.likes || []).includes(profileUser.id));
-  const savedPosts = posts.filter((p) => (p.savedBy || []).includes(profileUser.id));
+  const likedPosts = posts.filter((p) => p.likes.includes(profileUser.id));
+  const savedPosts = posts.filter((p) => p.savedBy.includes(profileUser.id));
 
   // Calculate total likes received on this user's posts
-  const totalLikesReceived = userPosts.reduce((acc, p) => acc + (p.likesCount ?? (p.likes || []).length), 0);
+  const totalLikesReceived = userPosts.reduce((acc, p) => acc + (p.likesCount ?? p.likes.length), 0);
 
   // Users who liked this user's posts
-  const likerUserIds = Array.from(new Set(userPosts.flatMap((p) => p.likes || []))).slice(0, 50);
+  const likerUserIds = Array.from(new Set(userPosts.flatMap((p) => p.likes))).slice(0, 50);
   const likerUsers = users.filter((u) => likerUserIds.includes(u.id));
 
   // Followers & Following users objects (fast lookup)
-  const followerUserIds = new Set(profileUser.followers || []);
+  const followerUserIds = new Set(profileUser.followers);
   const followerUsers = users.filter((u) => followerUserIds.has(u.id)).slice(0, 50);
-  const followingUsers = users.filter((u) => (profileUser.following || []).includes(u.id));
+  const followingUsers = users.filter((u) => profileUser.following.includes(u.id));
 
   // Pending verification request for this user
   const pendingVerification = verificationRequests.find(
@@ -500,7 +500,7 @@ export const ProfileView: React.FC = () => {
                 className="flex flex-col items-center justify-center p-3 rounded-2xl bg-neutral-50 dark:bg-neutral-800/50 hover:bg-indigo-50 dark:hover:bg-indigo-950/20 hover:border-indigo-200 transition-all text-center border border-neutral-100 dark:border-neutral-800/80 group"
               >
                 <span className="text-lg sm:text-xl font-black text-indigo-600 dark:text-indigo-400 group-hover:scale-105 transition-transform">
-                  {(profileUser.followerCount ?? (profileUser.followers || []).length).toLocaleString()}
+                  {(profileUser.followerCount ?? profileUser.followers.length).toLocaleString()}
                 </span>
                 <span className="text-xs font-medium text-neutral-500 dark:text-neutral-400">
                   {lang === 'bn' ? 'Followers (ফলোয়ার)' : 'Followers'}
@@ -513,7 +513,7 @@ export const ProfileView: React.FC = () => {
                 className="flex flex-col items-center justify-center p-3 rounded-2xl bg-neutral-50 dark:bg-neutral-800/50 hover:bg-sky-50 dark:hover:bg-sky-950/20 hover:border-sky-200 transition-all text-center border border-neutral-100 dark:border-neutral-800/80 group"
               >
                 <span className="text-lg sm:text-xl font-black text-sky-600 dark:text-sky-400 group-hover:scale-105 transition-transform">
-                  {(profileUser.following || []).length}
+                  {profileUser.following.length}
                 </span>
                 <span className="text-xs font-medium text-neutral-500 dark:text-neutral-400">
                   {lang === 'bn' ? 'Following (ফলোয়িং)' : 'Following'}
@@ -606,15 +606,15 @@ export const ProfileView: React.FC = () => {
                     <UserCheck className="w-4 h-4 text-indigo-500" />
                     <span>
                       {lang === 'bn'
-                        ? `ফলোয়ার তালিকা (${(profileUser.followerCount ?? (profileUser.followers || []).length).toLocaleString()})`
-                        : `Followers (${(profileUser.followerCount ?? (profileUser.followers || []).length).toLocaleString()})`}
+                        ? `ফলোয়ার তালিকা (${(profileUser.followerCount ?? profileUser.followers.length).toLocaleString()})`
+                        : `Followers (${(profileUser.followerCount ?? profileUser.followers.length).toLocaleString()})`}
                     </span>
                   </>
                 )}
                 {activeListModal === 'following' && (
                   <>
                     <UserCheck className="w-4 h-4 text-sky-500" />
-                    <span>{lang === 'bn' ? `অনুসরণ করছেন (${(profileUser.following || []).length})` : `Following (${(profileUser.following || []).length})`}</span>
+                    <span>{lang === 'bn' ? `অনুসরণ করছেন (${profileUser.following.length})` : `Following (${profileUser.following.length})`}</span>
                   </>
                 )}
                 {activeListModal === 'likes' && (
@@ -670,12 +670,12 @@ export const ProfileView: React.FC = () => {
                         <button
                           onClick={() => toggleFollow(u.id)}
                           className={`px-3 py-1.5 rounded-xl text-xs font-bold ${
-                            (currentUser.following || []).includes(u.id)
+                            currentUser.following.includes(u.id)
                               ? 'border border-neutral-300 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300'
                               : 'bg-indigo-600 text-white hover:bg-indigo-700'
                           }`}
                         >
-                          {(currentUser.following || []).includes(u.id)
+                          {currentUser.following.includes(u.id)
                             ? lang === 'bn' ? 'অনুসরণ করছেন' : 'Following'
                             : lang === 'bn' ? 'ফলো করুন' : 'Follow'}
                         </button>
@@ -721,12 +721,12 @@ export const ProfileView: React.FC = () => {
                         <button
                           onClick={() => toggleFollow(u.id)}
                           className={`px-3 py-1.5 rounded-xl text-xs font-bold ${
-                            (currentUser.following || []).includes(u.id)
+                            currentUser.following.includes(u.id)
                               ? 'border border-neutral-300 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300'
                               : 'bg-indigo-600 text-white hover:bg-indigo-700'
                           }`}
                         >
-                          {(currentUser.following || []).includes(u.id)
+                          {currentUser.following.includes(u.id)
                             ? lang === 'bn' ? 'অনুসরণ করছেন' : 'Following'
                             : lang === 'bn' ? 'ফলো করুন' : 'Follow'}
                         </button>
@@ -772,12 +772,12 @@ export const ProfileView: React.FC = () => {
                         <button
                           onClick={() => toggleFollow(u.id)}
                           className={`px-3 py-1.5 rounded-xl text-xs font-bold ${
-                            (currentUser.following || []).includes(u.id)
+                            currentUser.following.includes(u.id)
                               ? 'border border-neutral-300 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300'
                               : 'bg-indigo-600 text-white hover:bg-indigo-700'
                           }`}
                         >
-                          {(currentUser.following || []).includes(u.id)
+                          {currentUser.following.includes(u.id)
                             ? lang === 'bn' ? 'অনুসরণ করছেন' : 'Following'
                             : lang === 'bn' ? 'ফলো করুন' : 'Follow'}
                         </button>

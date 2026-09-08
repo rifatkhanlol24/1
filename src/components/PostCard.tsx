@@ -48,13 +48,13 @@ export const PostCard: React.FC<PostCardProps> = ({ post }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState(post.content);
   const [editFilter, setEditFilter] = useState<PhotoFilter>(post.filter || 'normal');
-  const [editTagsString, setEditTagsString] = useState((post.tags || []).join(', '));
+  const [editTagsString, setEditTagsString] = useState(post.tags.join(', '));
 
   const isAuthor = currentUser?.id === post.authorId;
   const { isFirebaseAdmin } = useApp();
   const isAdmin = isFirebaseAdmin;
-  const isLiked = currentUser ? (post.likes || []).includes(currentUser.id) : false;
-  const isSaved = currentUser ? (post.savedBy || []).includes(currentUser.id) : false;
+  const isLiked = currentUser ? post.likes.includes(currentUser.id) : false;
+  const isSaved = currentUser ? post.savedBy.includes(currentUser.id) : false;
 
   const handleCommentSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -360,7 +360,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post }) => {
                 isLiked ? 'fill-rose-500 text-rose-500' : ''
               }`}
             />
-            <span>{(post.likesCount ?? (post.likes || []).length).toLocaleString()}</span>
+            <span>{(post.likesCount ?? post.likes.length).toLocaleString()}</span>
           </button>
 
           {/* Comment Button */}
@@ -373,7 +373,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post }) => {
             }`}
           >
             <MessageCircle className="w-4 h-4" />
-            <span>{(post.comments || []).length}</span>
+            <span>{post.comments.length}</span>
           </button>
 
           {/* Share Button */}
@@ -424,12 +424,12 @@ export const PostCard: React.FC<PostCardProps> = ({ post }) => {
 
           {/* Comment List */}
           <div className="space-y-2.5 max-h-60 overflow-y-auto pr-1">
-            {(post.comments || []).length === 0 ? (
+            {post.comments.length === 0 ? (
               <p className="text-xs text-neutral-400 text-center py-2">
                 {lang === 'bn' ? 'প্রথম মন্তব্যকারী হোন!' : 'Be the first to comment!'}
               </p>
             ) : (
-              (post.comments || []).map((c) => (
+              post.comments.map((c) => (
                 <div
                   key={c.id}
                   className="flex items-start gap-2.5 text-xs bg-white dark:bg-neutral-800/60 p-2.5 rounded-xl border border-neutral-100 dark:border-neutral-800"

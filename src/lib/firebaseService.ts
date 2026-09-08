@@ -4,41 +4,9 @@ import {
   set,
   remove,
   child,
-  onValue,
 } from 'firebase/database';
 import { db } from './firebase';
 import { User, Post, Message, AppNotification } from '../types';
-
-function ensureArray<T>(val: any): T[] {
-  if (!val) return [];
-  if (Array.isArray(val)) return val.filter(Boolean);
-  if (typeof val === 'object') return Object.values(val).filter(Boolean) as T[];
-  return [];
-}
-
-export function sanitizeUser(u: any): User {
-  if (!u || typeof u !== 'object') return u;
-  return {
-    ...u,
-    followers: ensureArray(u.followers),
-    following: ensureArray(u.following),
-    links: ensureArray(u.links),
-  };
-}
-
-export function sanitizePost(p: any): Post {
-  if (!p || typeof p !== 'object') return p;
-  return {
-    ...p,
-    likes: ensureArray(p.likes),
-    savedBy: ensureArray(p.savedBy),
-    tags: ensureArray(p.tags),
-    comments: ensureArray(p.comments).map((c: any) => ({
-      ...c,
-      likes: ensureArray(c?.likes),
-    })),
-  };
-}
 
 export const firebaseService = {
   // Check connection status
@@ -48,7 +16,7 @@ export const firebaseService = {
       await get(child(dbRef, 'users'));
       return {
         success: true,
-        message: 'Connected to Firebase Realtime Database',
+        message: 'Connected to Firebase Realtime Database (social-media1bd)',
         timestamp: new Date().toISOString(),
       };
     } catch (err: unknown) {
@@ -64,12 +32,11 @@ export const firebaseService = {
   // Save / Update User
   async saveUser(user: User): Promise<boolean> {
     try {
-      const sanitized = sanitizeUser(user);
       const userRef = ref(db, `users/${user.id}`);
-      await set(userRef, sanitized);
+      await set(userRef, user);
       return true;
     } catch (err) {
-      console.warn('Realtime Database saveUser error:', err);
+      console.error(`[Firebase RTDB Write Error] Failed to write user profile to path users/${user.id}:`, err);
       return false;
     }
   },
@@ -81,13 +48,11 @@ export const firebaseService = {
       const snapshot = await get(usersRef);
       if (snapshot.exists()) {
         const val = snapshot.val();
-        let list: any[] = [];
         if (Array.isArray(val)) {
-          list = val.filter(Boolean);
+          return val.filter(Boolean);
         } else if (typeof val === 'object' && val !== null) {
-          list = Object.values(val);
+          return Object.values(val) as User[];
         }
-        return list.map(sanitizeUser);
       }
       return [];
     } catch (err) {
@@ -96,39 +61,11 @@ export const firebaseService = {
     }
   },
 
-  // Subscribe to Users in Realtime
-  subscribeToUsers(callback: (users: User[]) => void): () => void {
-    try {
-      const usersRef = ref(db, 'users');
-      const unsubscribe = onValue(usersRef, (snapshot) => {
-        if (snapshot.exists()) {
-          const val = snapshot.val();
-          let list: any[] = [];
-          if (Array.isArray(val)) {
-            list = val.filter(Boolean);
-          } else if (typeof val === 'object' && val !== null) {
-            list = Object.values(val);
-          }
-          callback(list.map(sanitizeUser));
-        } else {
-          callback([]);
-        }
-      }, (err) => {
-        console.warn('Realtime Database subscribeToUsers error:', err);
-      });
-      return unsubscribe;
-    } catch (err) {
-      console.warn('subscribeToUsers setup error:', err);
-      return () => {};
-    }
-  },
-
   // Save Post
   async savePost(post: Post): Promise<boolean> {
     try {
-      const sanitized = sanitizePost(post);
       const postRef = ref(db, `posts/${post.id}`);
-      await set(postRef, sanitized);
+      await set(postRef, post);
       return true;
     } catch (err) {
       console.warn('Realtime Database savePost error:', err);
@@ -155,13 +92,11 @@ export const firebaseService = {
       const snapshot = await get(postsRef);
       if (snapshot.exists()) {
         const val = snapshot.val();
-        let list: any[] = [];
         if (Array.isArray(val)) {
-          list = val.filter(Boolean);
+          return val.filter(Boolean);
         } else if (typeof val === 'object' && val !== null) {
-          list = Object.values(val);
+          return Object.values(val) as Post[];
         }
-        return list.map(sanitizePost);
       }
       return [];
     } catch (err) {
@@ -226,12 +161,6 @@ export const firebaseService = {
     };
     await set(ref(db, `users/UI28ofvzB7cjNJvCG0DvYgbCu9J3`), adminUser);
     usersCount++;
-
-    for (const u of users) {
-      const userRef = ref(db, `users/${u.id}`);
-      await set(userRef, u);
-      usersCount++;
-    }
 
     for (const p of posts) {
       const postRef = ref(db, `posts/${p.id}`);

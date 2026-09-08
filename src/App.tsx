@@ -12,7 +12,6 @@ import { NotificationCenter } from './components/NotificationCenter';
 import { AdminPanel } from './components/AdminPanel';
 import { CreatePostModal } from './components/CreatePostModal';
 import { AuthModal } from './components/AuthModal';
-import { GoogleAuthModal } from './components/GoogleAuthModal';
 import { AuthGateScreen } from './components/AuthGateScreen';
 import { ShareModal } from './components/ShareModal';
 import { VercelModal } from './components/VercelModal';
@@ -28,7 +27,6 @@ const MainLayout: React.FC = () => {
     return (
       <>
         <AuthGateScreen />
-        <GoogleAuthModal />
         <Toast />
       </>
     );
@@ -71,7 +69,6 @@ const MainLayout: React.FC = () => {
       {/* Interactive Global Modals */}
       <CreatePostModal />
       <AuthModal />
-      <GoogleAuthModal />
       <ShareModal />
       <VercelModal />
 

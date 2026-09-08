@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Search,
   TrendingUp,
@@ -12,11 +12,14 @@ import {
 import { useApp } from '../context/AppContext';
 import { TRENDING_TAGS } from '../data/mockData';
 import { PostCard } from './PostCard';
+import { ref, get } from 'firebase/database';
+import { db } from '../lib/firebase';
+import { User } from '../types';
 
 export const ExploreSearch: React.FC = () => {
   const {
     posts,
-    users,
+    users: contextUsers,
     currentUser,
     searchQuery,
     setSearchQuery,
@@ -27,32 +30,50 @@ export const ExploreSearch: React.FC = () => {
   } = useApp();
 
   const [activeFilter, setActiveFilter] = useState<'all' | 'posts' | 'people' | 'tags'>('all');
+  const [dbUsers, setDbUsers] = useState<User[]>([]);
+
+  useEffect(() => {
+    const fetchUsersFromRTDB = async () => {
+      try {
+        const usersRef = ref(db, 'users');
+        const snapshot = await get(usersRef);
+        if (snapshot.exists()) {
+          const val = snapshot.val();
+          const list: User[] = Array.isArray(val) ? val.filter(Boolean) : Object.values(val);
+          setDbUsers(list);
+        } else {
+          setDbUsers(contextUsers);
+        }
+      } catch (err) {
+        console.warn('Failed to query users from Realtime Database directly:', err);
+        setDbUsers(contextUsers);
+      }
+    };
+    fetchUsersFromRTDB();
+  }, [contextUsers]);
 
   const query = searchQuery.toLowerCase().trim();
+  const cleanQuery = query.replace(/^@/, '');
 
   // Search Results filtering
   const matchingPosts = posts.filter((p) => {
     if (!query) return true;
     const inContent = p.content.toLowerCase().includes(query);
-    const inTags = p.tags.some((t) => t.toLowerCase().includes(query.replace(/^#/, '')));
-    const inAuthor = p.authorName.toLowerCase().includes(query) || p.authorUsername.toLowerCase().includes(query);
+    const inTags = p.tags.some((t) => t.toLowerCase().includes(cleanQuery));
+    const inAuthor = p.authorName.toLowerCase().includes(query) || p.authorUsername.toLowerCase().includes(cleanQuery);
     const inLocation = p.location?.toLowerCase().includes(query);
     return inContent || inTags || inAuthor || inLocation;
   });
 
-  const matchingUsers = users.filter((u) => {
-    if (!query) return true;
-    return (
-      u.fullName.toLowerCase().includes(query) ||
-      u.username.toLowerCase().includes(query) ||
-      u.bio.toLowerCase().includes(query) ||
-      u.location?.toLowerCase().includes(query)
-    );
+  const matchingUsers = dbUsers.filter((u) => {
+    if (!cleanQuery) return true;
+    const username = (u.username || '').toLowerCase();
+    return username.includes(cleanQuery);
   });
 
   const matchingTags = TRENDING_TAGS.filter((t) => {
-    if (!query) return true;
-    return t.tag.toLowerCase().includes(query.replace(/^#/, ''));
+    if (!cleanQuery) return true;
+    return t.tag.toLowerCase().includes(cleanQuery);
   });
 
   return (
@@ -175,7 +196,7 @@ export const ExploreSearch: React.FC = () => {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {matchingUsers.map((u) => {
-              const isFollowing = currentUser ? (currentUser.following || []).includes(u.id) : false;
+              const isFollowing = currentUser?.following.includes(u.id);
               const isMe = currentUser?.id === u.id;
 
               return (

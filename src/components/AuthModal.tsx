@@ -63,22 +63,36 @@ export const AuthModal: React.FC = () => {
         return;
       }
 
-      if (trimmedFullName.length < 2) {
-        showToast(lang === 'bn' ? 'আপনার নাম লিখুন (কমপক্ষে ২ অক্ষর)।' : 'Please enter full name (at least 2 characters).');
+      // Name English-only validation (A-Z, a-z and spaces only - no numbers or special chars)
+      const englishNameRegex = /^[a-zA-Z ]+$/;
+      const hasBengaliChars = /[\u0980-\u09FF]/;
+
+      if (hasBengaliChars.test(trimmedFullName) || !englishNameRegex.test(trimmedFullName) || trimmedFullName.length < 2) {
+        showToast(
+          lang === 'bn'
+            ? 'নাম শুধুমাত্র ইংরেজি অক্ষর (A-Z, a-z) এবং স্পেস হতে পারবে (সংখ্যা, প্রতীক বা বাংলা গ্রহণযোগ্য নয়)।'
+            : 'Name must contain only English letters (A-Z, a-z) and spaces.'
+        );
         return;
       }
 
-      if (trimmedUsername.length < 2) {
-        showToast(lang === 'bn' ? 'ইউজারনেম কমপক্ষে ২ অক্ষরের হতে হবে।' : 'Username must be at least 2 characters.');
+      // Username English-only validation
+      const englishUsernameRegex = /^[a-zA-Z0-9_.-]+$/;
+      if (hasBengaliChars.test(trimmedUsername) || !englishUsernameRegex.test(trimmedUsername)) {
+        showToast(
+          lang === 'bn'
+            ? 'ইউজারনেম শুধুমাত্র ইংরেজি অক্ষরে (a-z, 0-9, _, ., -) হতে হবে।'
+            : 'Username must contain English characters only (a-z, 0-9, _, ., -).'
+        );
         return;
       }
 
-      setIsSubmitting(true);
-      try {
-        await register(trimmedEmail, trimmedUsername, trimmedFullName, trimmedPassword || undefined);
-      } finally {
-        setIsSubmitting(false);
+      if (trimmedUsername.length < 3) {
+        showToast(lang === 'bn' ? 'ইউজারনেম কমপক্ষে ৩ অক্ষরের হতে হবে।' : 'Username must be at least 3 characters.');
+        return;
       }
+
+      register(trimmedEmail, trimmedUsername, trimmedFullName, trimmedPassword || undefined);
     }
   };
 
