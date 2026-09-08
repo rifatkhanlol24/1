@@ -77,7 +77,7 @@ export const AdminPanel: React.FC = () => {
   const [autoCommentCount, setAutoCommentCount] = useState<number>(10);
   const [autoCommentCustomText, setAutoCommentCustomText] = useState('');
 
-  // Resolvers for Profile Link / Username Search
+  // Resolvers for Profile Link / Username Search (supports ShohelTaj, @shoheltaj, soheltajbhola, etc.)
   const resolveTargetUser = (input: string): User | null => {
     if (!input || !input.trim()) return null;
     let term = input.trim();
@@ -92,13 +92,56 @@ export const AdminPanel: React.FC = () => {
       const parts = term.split('/u/');
       if (parts[1]) term = parts[1].split(/[?#]/)[0];
     }
-    term = term.toLowerCase().replace(/^@/, '').trim();
+
+    const cleanTerm = term.toLowerCase().replace(/^@/, '').trim();
+    if (!cleanTerm) return null;
+
+    const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '').replace(/sh/g, 's');
+    const termNorm = norm(cleanTerm);
+
+    // 1. Direct username match
+    let found = users.find((u) => u.username.toLowerCase() === cleanTerm);
+    if (found) return found;
+
+    // 2. Direct fullName match
+    found = users.find((u) => u.fullName.toLowerCase() === cleanTerm);
+    if (found) return found;
+
+    // 3. Email match or email username part (e.g. soheltajbhola)
+    found = users.find(
+      (u) =>
+        u.email.toLowerCase() === cleanTerm ||
+        u.email.toLowerCase().split('@')[0] === cleanTerm
+    );
+    if (found) return found;
+
+    // 4. Normalized phonetic & spaceless match (ShohelTaj <-> Sohel Taj <-> shoheltaj)
+    found = users.find((u) => {
+      const uUserNorm = norm(u.username);
+      const uNameNorm = norm(u.fullName);
+      const uEmailNorm = norm(u.email.split('@')[0]);
+
+      return (
+        uUserNorm === termNorm ||
+        uNameNorm === termNorm ||
+        uEmailNorm === termNorm ||
+        uUserNorm.includes(termNorm) ||
+        termNorm.includes(uUserNorm) ||
+        uNameNorm.includes(termNorm) ||
+        termNorm.includes(uNameNorm) ||
+        uEmailNorm.includes(termNorm) ||
+        termNorm.includes(uEmailNorm)
+      );
+    });
+    if (found) return found;
+
+    // 5. General substring match
     return (
       users.find(
         (u) =>
-          u.username.toLowerCase() === term ||
-          u.id.toLowerCase() === term ||
-          u.fullName.toLowerCase() === term
+          u.username.toLowerCase().includes(cleanTerm) ||
+          u.fullName.toLowerCase().includes(cleanTerm) ||
+          u.id.toLowerCase() === cleanTerm
       ) || null
     );
   };
@@ -749,21 +792,21 @@ export const AdminPanel: React.FC = () => {
                         type="text"
                         value={botSearchInput}
                         onChange={(e) => setBotSearchInput(e.target.value)}
-                        placeholder="https://.../?u=username অথবা @username"
+                        placeholder="যেমন: ShohelTaj বা @shoheltaj অথবা প্রোফাইল লিঙ্ক"
                         className="w-full text-xs pl-8 pr-2.5 py-2 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 focus:ring-2 focus:ring-purple-500 focus:outline-none"
                       />
                     </div>
                     {/* Quick Pick Chips */}
                     <div className="flex items-center gap-1.5 mt-1.5 overflow-x-auto pb-1 text-[10px] text-neutral-500">
                       <span className="shrink-0 text-neutral-400">Quick:</span>
-                      {users.slice(0, 4).map((u) => (
+                      {['shoheltaj', 'sarah_visuals', 'tanvir_codes'].map((uname) => (
                         <button
-                          key={u.id}
+                          key={uname}
                           type="button"
-                          onClick={() => setBotSearchInput(u.username)}
-                          className="px-2 py-0.5 rounded-md bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-300 shrink-0 font-mono"
+                          onClick={() => setBotSearchInput(`@${uname}`)}
+                          className="px-2 py-0.5 rounded-md bg-purple-50 dark:bg-purple-950/60 hover:bg-purple-100 dark:hover:bg-purple-900 text-purple-700 dark:text-purple-300 shrink-0 font-mono font-medium border border-purple-200 dark:border-purple-800"
                         >
-                          @{u.username}
+                          @{uname}
                         </button>
                       ))}
                     </div>

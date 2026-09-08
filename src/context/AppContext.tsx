@@ -177,15 +177,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         (u) =>
           u.id === 'user-admin' ||
           u.email === 'soheltajbhola@gmail.com' ||
-          u.email === 'rifatkhanlol24@gmail.com'
+          u.email === 'rifatkhanlol24@gmail.com' ||
+          u.username === 'sohel_admin' ||
+          u.username === 'shoheltaj'
       );
       if (adminIndex !== -1) {
         list[adminIndex] = {
           ...list[adminIndex],
           id: 'user-admin',
           email: 'soheltajbhola@gmail.com',
-          fullName: 'Sohel Taj (Admin)',
-          username: list[adminIndex].username === 'rifat_admin' ? 'sohel_admin' : list[adminIndex].username,
+          fullName: 'Shohel Taj',
+          username: 'shoheltaj',
           role: 'admin',
           isVerified: true,
           isVip: true,
@@ -990,7 +992,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         updatedAt: now,
       };
       setConversations((prev) => [conv!, ...prev]);
+      setActiveConversationId(convId);
     } else {
+      setActiveConversationId(convId);
       setConversations((prev) =>
         prev.map((c) =>
           c.id === convId ? { ...c, lastMessage: newMsg, updatedAt: now } : c
@@ -1060,11 +1064,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const startOrOpenChatWithUser = (targetUserId: string) => {
-    if (!currentUser || targetUserId === currentUser.id) return;
+    if (!currentUser) return;
+    const isSelf = targetUserId === currentUser.id;
     const existing = conversations.find(
       (c) =>
         c.participantIds.includes(currentUser.id) &&
-        c.participantIds.includes(targetUserId)
+        (isSelf
+          ? c.participantIds.length === 1 || (c.participantIds[0] === currentUser.id && c.participantIds[1] === currentUser.id)
+          : c.participantIds.includes(targetUserId))
     );
     if (existing) {
       setActiveConversationId(existing.id);
@@ -1072,7 +1079,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       const newConvId = `conv-${Date.now()}`;
       const newConv: Conversation = {
         id: newConvId,
-        participantIds: [currentUser.id, targetUserId],
+        participantIds: isSelf ? [currentUser.id] : [currentUser.id, targetUserId],
         updatedAt: new Date().toISOString(),
       };
       setConversations((prev) => [newConv, ...prev]);
