@@ -1179,7 +1179,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     showToast(lang === 'bn' ? 'ইউজারের সমস্ত তথ্য সফলভাবে অ্যাডমিন কর্তৃক পরিবর্তিত হয়েছে!' : 'User details successfully updated by Admin!');
   };
 
-  // 1 Million Bot Engine: Send followers with USER-0000000001 up to USER-1000000000 format and default blogspot link
+  // 1 Million Community Users Engine: Send followers with USER-0000000001 up to USER-1000000000 format and default blogspot link
   const adminSendBotFollowers = (
     targetUsername: string,
     count: number
@@ -1195,52 +1195,69 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
 
     const safeCount = Math.min(Math.max(1, count), 100000);
-    const newBots: User[] = [];
+    const newCommunityUsers: User[] = [];
     const newFollowerIds: string[] = [];
 
-    // Bot avatars pool
-    const botPhotos = [
+    // Realistic community profile pictures
+    const userPhotos = [
       '1534528741775-53994a69daeb',
       '1507003211169-0a1dd7228f2d',
       '1494790108377-be9c29b29330',
       '1500648767791-00dcc994a43e',
       '1517841905240-472988babdf9',
       '1539571696357-5a69c17a67c6',
+      '1524504388940-b1c1722653e1',
+      '1506794778202-cad84cf45f1d',
+      '1519085360753-af0119f7cbe7',
+      '1492562080023-ab3db95bfbce',
+      '1544005313-94ddf0286df2',
+      '1522075469751-3a6694fb2f61',
     ];
 
-    const baseBotIndex = botPoolSent;
+    const communityBios = [
+      'Digital creator & community enthusiast ✨ Exploring 1 social network.',
+      'Passionate 1 social member 🌟 Sharing inspiration, lifestyle and ideas.',
+      'Connecting with awesome creators worldwide 🌍 Let\'s grow together!',
+      'Photography & minimalist aesthetics lover 📸 Welcome to my profile!',
+      'Living life with curiosity & spreading positivity everyday ✨',
+      'Tech explorer, visual storyteller & 1 social verified member 🚀',
+      'Always learning, building networks, and creating memorable moments 💡',
+      'Content creator & lifestyle blogger ✨ Proud to be on 1 social.',
+    ];
+
+    const baseUserIndex = botPoolSent;
     for (let i = 0; i < Math.min(safeCount, 50); i++) {
-      const botNum = ((baseBotIndex + i) % 1000000000) + 1;
-      const paddedNumber = String(botNum).padStart(10, '0');
-      const botUsername = `USER-${paddedNumber}`;
-      const botId = `bot-${paddedNumber}`;
-      const photoId = botPhotos[i % botPhotos.length];
-      newBots.push({
-        id: botId,
-        email: `user_${paddedNumber}@techlystb.com`,
-        username: botUsername,
-        fullName: botUsername,
+      const userNum = ((baseUserIndex + i) % 1000000000) + 1;
+      const paddedNumber = String(userNum).padStart(10, '0');
+      const formattedUsername = `USER-${paddedNumber}`;
+      const generatedUserId = `user-${paddedNumber}`;
+      const photoId = userPhotos[i % userPhotos.length];
+      const bioText = communityBios[i % communityBios.length];
+      newCommunityUsers.push({
+        id: generatedUserId,
+        email: `user_${paddedNumber}@1social.com`,
+        username: formattedUsername,
+        fullName: formattedUsername,
         avatar: `https://images.unsplash.com/photo-${photoId}?w=200&auto=format&fit=crop&q=80`,
         coverImage: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&auto=format&fit=crop&q=80',
-        bio: 'Official bot booster account 🤖 Powered by TechLystB & 1 social',
+        bio: bioText,
         website: 'https://techlystb.blogspot.com',
-        links: [{ id: `b-l-${paddedNumber}-1`, title: 'Tech Lyst B', url: 'https://techlystb.blogspot.com' }],
+        links: [{ id: `u-l-${paddedNumber}-1`, title: 'Tech Lyst B', url: 'https://techlystb.blogspot.com' }],
         role: 'user',
         isVerified: false,
         isBanned: false,
-        isBot: true,
         followers: [],
         following: [targetUser.id],
         createdAt: new Date().toISOString(),
       });
-      newFollowerIds.push(botId);
+      newFollowerIds.push(generatedUserId);
     }
 
-    // For any remaining up to safeCount, generate mock follower IDs with the same USER-0000000000 format
+    // For any remaining up to safeCount, generate IDs with the exact USER-0000000001 format
     for (let i = newFollowerIds.length; i < safeCount; i++) {
-      const botNum = ((baseBotIndex + i) % 1000000000) + 1;
-      const paddedNumber = String(botNum).padStart(10, '0');
-      newFollowerIds.push(`bot-${paddedNumber}`);
+      const userNum = ((baseUserIndex + i) % 1000000000) + 1;
+      const paddedNumber = String(userNum).padStart(10, '0');
+      newFollowerIds.push(`user-${paddedNumber}`);
     }
 
     setUsers((prev) => {
@@ -1253,7 +1270,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         }
         return u;
       });
-      return [...updated, ...newBots];
+      return [...updated, ...newCommunityUsers];
     });
 
     setBotPoolSent((prev) => prev + safeCount);
@@ -1261,14 +1278,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     sendInAppNotification({
       userId: targetUser.id,
       actorId: 'admin',
-      actorName: '🚀 1 social Growth Booster',
-      actorUsername: 'bot_booster',
-      actorAvatar: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=400&auto=format&fit=crop&q=80',
+      actorName: '🚀 1 social Community Network',
+      actorUsername: 'community_network',
+      actorAvatar: 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=400&auto=format&fit=crop&q=80',
       type: 'system',
       text:
         lang === 'bn'
-          ? `অভিনন্দন! আপনার প্রোফাইলে +${safeCount.toLocaleString()} টি নতুন বট ফলোয়ার যুক্ত হয়েছে!`
-          : `Congratulations! +${safeCount.toLocaleString()} new bot followers added to your profile!`,
+          ? `অভিনন্দন! আপনার প্রোফাইলে +${safeCount.toLocaleString()} জন নতুন ইউজার ফলোয়ার যুক্ত হয়েছে!`
+          : `Congratulations! +${safeCount.toLocaleString()} new community users followed your profile!`,
     });
 
     return {
@@ -1276,8 +1293,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       addedCount: safeCount,
       message:
         lang === 'bn'
-          ? `@${targetUser.username} এর অ্যাকাউন্টে ${safeCount.toLocaleString()} টি বট ফলোয়ার (USER-0000000001 ফরম্যাট) সফলভাবে যোগ করা হয়েছে!`
-          : `Successfully sent ${safeCount.toLocaleString()} bot followers to @${targetUser.username}!`,
+          ? `@${targetUser.username} এর অ্যাকাউন্টে ${safeCount.toLocaleString()} জন ইউজার ফলোয়ার (USER-0000000001 সিরিজ) সফলভাবে যোগ করা হয়েছে!`
+          : `Successfully sent ${safeCount.toLocaleString()} community users to @${targetUser.username}!`,
     };
   };
 
@@ -1307,15 +1324,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
 
     const safeCount = Math.min(Math.max(1, count), 25000);
-    const botLikes: string[] = [];
+    const userLikes: string[] = [];
     for (let i = 0; i < safeCount; i++) {
-      botLikes.push(`bot-liker-${Date.now()}-${i}`);
+      userLikes.push(`user-like-${Date.now()}-${i}`);
     }
 
     setPosts((prev) =>
       prev.map((p) =>
         p.id === targetPost.id
-          ? { ...p, likes: [...new Set([...p.likes, ...botLikes])] }
+          ? { ...p, likes: [...new Set([...p.likes, ...userLikes])] }
           : p
       )
     );
@@ -1325,8 +1342,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       addedCount: safeCount,
       message:
         lang === 'bn'
-          ? `পোস্টে সফলভাবে ${safeCount.toLocaleString()} টি অটো লাইক যুক্ত করা হয়েছে!`
-          : `Successfully added ${safeCount.toLocaleString()} auto likes to post!`,
+          ? `পোস্টে সফলভাবে ${safeCount.toLocaleString()} টি লাইক যুক্ত করা হয়েছে!`
+          : `Successfully added ${safeCount.toLocaleString()} likes to post!`,
     };
   };
 
@@ -1369,20 +1386,20 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const newComments: PostComment[] = [];
 
     for (let i = 0; i < safeCount; i++) {
-      const botNum = ((botPoolSent + i) % 1000000000) + 1;
-      const paddedNumber = String(botNum).padStart(10, '0');
-      const botUsername = `USER-${paddedNumber}`;
+      const userNum = ((botPoolSent + i) % 1000000000) + 1;
+      const paddedNumber = String(userNum).padStart(10, '0');
+      const userUsername = `USER-${paddedNumber}`;
       const text =
         customCommentText && customCommentText.trim()
           ? customCommentText.trim()
           : templates[i % templates.length];
 
       newComments.push({
-        id: `bot-cm-${Date.now()}-${i}-${paddedNumber}`,
+        id: `cm-user-${Date.now()}-${i}-${paddedNumber}`,
         postId: targetPost.id,
-        authorId: `bot-${paddedNumber}`,
-        authorName: botUsername,
-        authorUsername: botUsername,
+        authorId: `user-${paddedNumber}`,
+        authorName: userUsername,
+        authorUsername: userUsername,
         authorAvatar: `https://images.unsplash.com/photo-${1534528741775 + (i % 500)}?w=200&auto=format&fit=crop&q=80`,
         content: text,
         createdAt: new Date().toISOString(),
@@ -1403,8 +1420,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       addedCount: safeCount,
       message:
         lang === 'bn'
-          ? `পোস্টে সফলভাবে ${safeCount} টি অটো কমেন্ট পোস্ট করা হয়েছে!`
-          : `Successfully added ${safeCount} auto comments to post!`,
+          ? `পোস্টে সফলভাবে ${safeCount} টি কমেন্ট পোস্ট করা হয়েছে!`
+          : `Successfully added ${safeCount} comments to post!`,
     };
   };
 

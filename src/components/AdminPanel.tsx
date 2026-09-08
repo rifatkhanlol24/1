@@ -17,7 +17,7 @@ import {
   Flame,
   Database,
   Crown,
-  Bot,
+  UserPlus,
   Heart,
   MessageSquare,
   Sparkles,
@@ -270,8 +270,8 @@ export const AdminPanel: React.FC = () => {
           </h2>
           <p className="text-xs sm:text-sm text-neutral-400 mt-1">
             {lang === 'bn'
-              ? '১ মিলিয়ন বট পুল, অটো-লাইক, অটো-কমেন্ট, ভেরিফিকেশন ও ভিআইপি আবেদন অনুমোদন এবং সম্পূর্ণ ডাটাবেজ কন্ট্রোল।'
-              : 'Manage 1M Bot Pool, auto-likes, auto-comments, VIP & verification requests, and complete database.'}
+              ? '১ মিলিয়ন গ্লোবাল ইউজার পুল, অটো-লাইক, অটো-কমেন্ট, ভেরিফিকেশন ও ভিআইপি আবেদন অনুমোদন এবং সম্পূর্ণ ডাটাবেজ কন্ট্রোল।'
+              : 'Manage 1M Community Users Pool, auto-likes, auto-comments, VIP & verification requests, and complete database.'}
           </p>
         </div>
 
@@ -305,8 +305,8 @@ export const AdminPanel: React.FC = () => {
 
         <div className="p-4 rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-xs">
           <div className="flex items-center justify-between text-neutral-500 mb-2">
-            <span className="text-xs font-medium">{lang === 'bn' ? 'বট পুল সাইজ' : 'Bot Engine Pool'}</span>
-            <Bot className="w-4 h-4 text-purple-500" />
+            <span className="text-xs font-medium">{lang === 'bn' ? 'ওয়ান মিলিয়ন ইউজার পুল' : '1M Users Pool'}</span>
+            <Users className="w-4 h-4 text-purple-500" />
           </div>
           <p className="text-2xl font-black text-purple-600 dark:text-purple-400">
             {(botPoolTotal - botPoolSent).toLocaleString()}
@@ -381,8 +381,8 @@ export const AdminPanel: React.FC = () => {
               : 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800'
           }`}
         >
-          <Bot className="w-3.5 h-3.5 text-purple-500" />
-          <span>{lang === 'bn' ? 'বট ও অটো-এনগেজমেন্ট' : 'Bots & Auto Likes'}</span>
+          <Users className="w-3.5 h-3.5 text-purple-500" />
+          <span>{lang === 'bn' ? '১ মিলিয়ন ইউজার ও গ্রোথ' : '1M Users & Growth'}</span>
         </button>
 
         <button
@@ -685,46 +685,46 @@ export const AdminPanel: React.FC = () => {
         </div>
       )}
 
-      {/* Tab 3: Bot Engine & Auto-Engagement Automation */}
+      {/* Tab 3: 1 Million Users & Auto-Engagement Automation */}
       {activeSubTab === 'automation' && (
         <div className="space-y-6">
-          {/* Bot Pool Summary Banner */}
+          {/* User Pool Summary Banner */}
           <div className="p-5 rounded-3xl bg-gradient-to-r from-purple-950 via-indigo-950 to-neutral-900 text-white shadow-xl border border-purple-800/60 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div>
               <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-500/20 border border-purple-400/30 text-purple-200 text-xs font-bold mb-2">
-                <Bot className="w-3.5 h-3.5 text-purple-400" />
-                <span>1 Million Bot Engine • USER-0000000001 to USER-1000000000</span>
+                <Users className="w-3.5 h-3.5 text-purple-400" />
+                <span>1 Million Users • USER-0000000001 to USER-1000000000</span>
               </div>
               <h3 className="text-xl font-black flex items-center gap-2">
-                <span>{lang === 'bn' ? 'অটো-এনগেজমেন্ট কন্ট্রোল সেন্টার' : 'Auto-Engagement Control Center'}</span>
+                <span>{lang === 'bn' ? '১ মিলিয়ন ইউজার ডেলিভারি ও এনগেজমেন্ট' : '1 Million Users Growth Hub'}</span>
                 <Sparkles className="w-5 h-5 text-amber-400" />
               </h3>
               <p className="text-xs text-purple-200/90 mt-1 max-w-xl">
                 {lang === 'bn'
-                  ? 'প্রোফাইল লিঙ্ক পেস্ট করে বা ইউজারনেম দিয়ে সার্চ করে যেকোনো অ্যাকাউন্টে ইনস্ট্যান্ট বট ফলোয়ার পাঠান। অথবা পোস্ট লিঙ্ক পেস্ট করে অটো-লাইক ও কমেন্ট ইনজেক্ট করুন।'
-                  : 'Search by profile link or username to inject bots, or paste post links to boost with auto-likes and realistic comments.'}
+                  ? 'প্রোফাইল লিঙ্ক পেস্ট করে বা ইউজারনেম দিয়ে সার্চ করে যেকোনো অ্যাকাউন্টে ইনস্ট্যান্ট ওয়ান মিলিয়ন কমিউনিটি ইউজার যুক্ত করুন। অথবা পোস্ট লিঙ্ক দিয়ে লাইক ও কমেন্ট যুক্ত করুন।'
+                  : 'Search by profile link or username to deliver verified community users, or paste post links to boost with auto-likes and realistic comments.'}
               </p>
             </div>
 
             <div className="bg-white/10 backdrop-blur-md p-4 rounded-2xl border border-white/20 text-center shrink-0 w-full sm:w-auto">
-              <span className="text-[10px] text-purple-200 uppercase font-bold tracking-wider block">Available Bot Pool</span>
+              <span className="text-[10px] text-purple-200 uppercase font-bold tracking-wider block">Available User Pool</span>
               <span className="text-2xl font-black text-white font-mono">{(botPoolTotal - botPoolSent).toLocaleString()}</span>
-              <span className="text-[10px] text-purple-300 block mt-0.5">Format: USER-XXXXXXXXXX</span>
+              <span className="text-[10px] text-purple-300 block mt-0.5">Series: USER-0000000001 to USER-1000000000</span>
             </div>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-            {/* Tool 1: Bot Followers Sender */}
+            {/* Tool 1: Community Users Sender */}
             <div className="rounded-3xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-5 shadow-sm flex flex-col justify-between space-y-4">
               <div className="space-y-4">
                 <div className="flex items-center justify-between pb-3 border-b border-neutral-100 dark:border-neutral-800">
                   <div className="flex items-center gap-2">
                     <div className="p-2 rounded-xl bg-purple-50 dark:bg-purple-950 text-purple-600 dark:text-purple-400">
-                      <Bot className="w-4 h-4" />
+                      <UserPlus className="w-4 h-4" />
                     </div>
                     <div>
                       <h4 className="font-bold text-xs text-neutral-900 dark:text-neutral-100">
-                        {lang === 'bn' ? 'বট ফলোয়ার ইনজেকশন' : 'Bot Followers Injection'}
+                        {lang === 'bn' ? 'ওয়ান মিলিয়ন ইউজার ডেলিভারি' : '1M Community Users Delivery'}
                       </h4>
                       <p className="text-[10px] text-neutral-400">Target custom profile link / username</p>
                     </div>
@@ -820,20 +820,21 @@ export const AdminPanel: React.FC = () => {
 
                   <div>
                     <label className="text-[11px] font-semibold text-neutral-700 dark:text-neutral-300 block mb-1">
-                      {lang === 'bn' ? 'বট সংখ্যা:' : 'Bot Count:'}
+                      {lang === 'bn' ? 'ইউজার সংখ্যা:' : 'User Count:'}
                     </label>
                     <select
                       value={botFollowersCount}
                       onChange={(e) => setBotFollowersCount(Number(e.target.value))}
                       className="w-full text-xs p-2 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100"
                     >
-                      <option value={100}>100 Followers (USER-0000000001...)</option>
-                      <option value={500}>500 Followers</option>
-                      <option value={1000}>1,000 Followers</option>
-                      <option value={5000}>5,000 Followers</option>
-                      <option value={10000}>10,000 Followers</option>
-                      <option value={50000}>50,000 Followers</option>
-                      <option value={100000}>100,000 Followers</option>
+                      <option value={100}>100 Community Users (USER-0000000001...)</option>
+                      <option value={500}>500 Community Users</option>
+                      <option value={1000}>1,000 Community Users</option>
+                      <option value={5000}>5,000 Community Users</option>
+                      <option value={10000}>10,000 Community Users</option>
+                      <option value={50000}>50,000 Community Users</option>
+                      <option value={100000}>100,000 Community Users</option>
+                      <option value={1000000}>1,000,000 Users (Full 1 Million Pool)</option>
                     </select>
                   </div>
 
@@ -846,11 +847,11 @@ export const AdminPanel: React.FC = () => {
                     <span>
                       {previewedBotUser
                         ? lang === 'bn'
-                          ? `@${previewedBotUser.username} কে ${botFollowersCount.toLocaleString()} বট পাঠান`
-                          : `Send ${botFollowersCount.toLocaleString()} Bots to @${previewedBotUser.username}`
+                          ? `@${previewedBotUser.username} কে ${botFollowersCount.toLocaleString()} জন ইউজার পাঠান`
+                          : `Send ${botFollowersCount.toLocaleString()} Users to @${previewedBotUser.username}`
                         : lang === 'bn'
-                        ? 'বট ফলোয়ার সেন্ড করুন'
-                        : 'Inject Bot Followers'}
+                        ? 'ইউজার ফলোয়ার সেন্ড করুন'
+                        : 'Deliver Community Users'}
                     </span>
                   </button>
                 </form>
@@ -1014,11 +1015,11 @@ export const AdminPanel: React.FC = () => {
                       <h4 className="font-bold text-xs text-neutral-900 dark:text-neutral-100">
                         {lang === 'bn' ? 'অটো-কমেন্ট জেনারেটর' : 'Auto Comments Generator'}
                       </h4>
-                      <p className="text-[10px] text-neutral-400">Realistic comments from USER-bots</p>
+                      <p className="text-[10px] text-neutral-400">Realistic comments from community users</p>
                     </div>
                   </div>
                   <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300">
-                    USER-bots
+                    USER-series
                   </span>
                 </div>
 

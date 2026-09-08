@@ -209,10 +209,10 @@ export const AuthGateScreen: React.FC = () => {
               <div className="p-3 rounded-2xl bg-white/70 dark:bg-neutral-900/70 border border-neutral-200/80 dark:border-neutral-800/80 shadow-xs">
                 <div className="flex items-center gap-2 text-xs font-bold text-neutral-900 dark:text-neutral-100">
                   <Flame className="w-4 h-4 text-amber-500" />
-                  <span>{lang === 'bn' ? 'বট ও গ্রোথ ইঞ্জিন' : '1M Bot Engine'}</span>
+                  <span>{lang === 'bn' ? '১ মিলিয়ন ইউজার নেটওয়ার্ক' : '1M Users Network'}</span>
                 </div>
-                <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-1">
-                  {lang === 'bn' ? 'USER-0000000001 ফরম্যাট' : 'USER-XXXXXXXXXX series'}
+                <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-1 font-mono">
+                  {lang === 'bn' ? 'USER-0000000001 থেকে USER-1000000000' : 'USER-0000000001 to USER-1000000000'}
                 </p>
               </div>
 
