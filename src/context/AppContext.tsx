@@ -28,7 +28,7 @@ import {
   signInWithPopup,
   signOut,
 } from 'firebase/auth';
-import { ref, get } from 'firebase/database';
+import { getFirestore, doc, getDoc } from 'firebase/firestore';
 import { app, auth, db } from '../lib/firebase';
 import { firebaseService } from '../lib/firebaseService';
 
@@ -251,7 +251,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const [isFirebaseAdmin, setIsFirebaseAdmin] = useState<boolean>(false);
 
-  // Helper to load or construct user profile from Firebase Realtime Database users/{uid}
+  // Helper to load or construct user profile from Firebase Firestore users/{uid}
   const loadUserProfileFromFirebase = async (
     uid: string,
     fallbackEmail?: string,
@@ -259,17 +259,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     fallbackPhoto?: string
   ): Promise<User> => {
     try {
-      const userRef = ref(db, `users/${uid}`);
-      const snapshot = await get(userRef);
-      if (snapshot.exists()) {
-        const data = snapshot.val() as User;
+      const userDocRef = doc(db, 'users', uid);
+      const docSnap = await getDoc(userDocRef);
+      if (docSnap.exists()) {
+        const data = docSnap.data() as User;
         return {
           ...data,
           id: uid,
         };
       }
     } catch (err) {
-      console.warn('[Firebase RTDB] Could not fetch profile for UID:', uid, err);
+      console.warn('[Firebase Firestore] Could not fetch profile for UID:', uid, err);
     }
 
     const isAdmin = uid === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3';
