@@ -174,9 +174,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     return list;
   });
 
-  const [currentUserId, setCurrentUserId] = useState<string>(() => {
+  const [currentUserId, setCurrentUserId] = useState<string | null>(() => {
     const saved = localStorage.getItem('vc_current_user_id');
-    return saved || 'user-admin';
+    return saved || null;
   });
 
   const [posts, setPosts] = useState<Post[]>(() => {
@@ -283,7 +283,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   }, [users]);
 
   useEffect(() => {
-    localStorage.setItem('vc_current_user_id', currentUserId);
+    if (currentUserId) {
+      localStorage.setItem('vc_current_user_id', currentUserId);
+    } else {
+      localStorage.removeItem('vc_current_user_id');
+    }
   }, [currentUserId]);
 
   useEffect(() => {
@@ -350,7 +354,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   }, [users, posts]);
 
-  const currentUser = users.find((u) => u.id === currentUserId) || users[0] || null;
+  const currentUser = currentUserId ? users.find((u) => u.id === currentUserId) || null : null;
 
   // Toggle Theme
   const toggleDarkMode = () => {
@@ -445,6 +449,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const logout = () => {
+    setCurrentUserId(null);
+    localStorage.removeItem('vc_current_user_id');
+    setActiveTab('feed');
+    setSelectedUserProfileId(null);
     showToast(lang === 'bn' ? 'লগআউট সফল হয়েছে।' : 'Logged out successfully.');
   };
 

@@ -12,12 +12,23 @@ import { NotificationCenter } from './components/NotificationCenter';
 import { AdminPanel } from './components/AdminPanel';
 import { CreatePostModal } from './components/CreatePostModal';
 import { AuthModal } from './components/AuthModal';
+import { AuthGateScreen } from './components/AuthGateScreen';
 import { ShareModal } from './components/ShareModal';
 import { VercelModal } from './components/VercelModal';
 import { Toast } from './components/Toast';
 
 const MainLayout: React.FC = () => {
-  const { activeTab } = useApp();
+  const { activeTab, currentUser } = useApp();
+
+  // If not logged in, enforce the Registration / Login Gate Screen
+  if (!currentUser) {
+    return (
+      <>
+        <AuthGateScreen />
+        <Toast />
+      </>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-neutral-100 dark:bg-neutral-950 text-neutral-900 dark:text-neutral-50 transition-colors selection:bg-indigo-500 selection:text-white">

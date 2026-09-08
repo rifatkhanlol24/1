@@ -10,6 +10,7 @@ import {
   Globe,
   CheckCircle,
   Flame,
+  LogOut,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
@@ -23,8 +24,11 @@ export const Sidebar: React.FC = () => {
     setIsCreateModalOpen,
     setIsVercelModalOpen,
     setSelectedUserProfileId,
+    logout,
     lang,
   } = useApp();
+
+  const isUserAdmin = currentUser?.email === 'soheltajbhola@gmail.com' || currentUser?.role === 'admin';
 
   // Count unread messages for current user
   const unreadMessagesCount = messages.filter(
@@ -107,24 +111,26 @@ export const Sidebar: React.FC = () => {
             );
           })}
 
-          {/* Firebase & Admin Console button */}
-          <button
-            id="sidebar-nav-admin"
-            onClick={() => setActiveTab('admin')}
-            className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-bold transition-all ${
-              activeTab === 'admin'
-                ? 'bg-amber-600 text-white shadow-sm shadow-amber-600/20'
-                : 'text-amber-700 dark:text-amber-400 bg-amber-50/70 dark:bg-amber-950/30 hover:bg-amber-100 dark:hover:bg-amber-950/60 border border-amber-200/60 dark:border-amber-900/40'
-            }`}
-          >
-            <div className="flex items-center gap-3">
-              <Flame className="w-5 h-5 fill-current text-amber-500" />
-              <span>{lang === 'bn' ? 'ফায়ারবেস ও এডমিন' : 'Firebase & Admin'}</span>
-            </div>
-            <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/80 text-amber-800 dark:text-amber-200 font-black">
-              LIVE
-            </span>
-          </button>
+          {/* Firebase & Admin Console button (Admin Only) */}
+          {isUserAdmin && (
+            <button
+              id="sidebar-nav-admin"
+              onClick={() => setActiveTab('admin')}
+              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-bold transition-all ${
+                activeTab === 'admin'
+                  ? 'bg-amber-600 text-white shadow-sm shadow-amber-600/20'
+                  : 'text-amber-700 dark:text-amber-400 bg-amber-50/70 dark:bg-amber-950/30 hover:bg-amber-100 dark:hover:bg-amber-950/60 border border-amber-200/60 dark:border-amber-900/40'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <Flame className="w-5 h-5 fill-current text-amber-500" />
+                <span>{lang === 'bn' ? 'ফায়ারবেস ও এডমিন' : 'Firebase & Admin'}</span>
+              </div>
+              <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/80 text-amber-800 dark:text-amber-200 font-black">
+                LIVE
+              </span>
+            </button>
+          )}
         </nav>
 
         {/* Primary Action Button */}
@@ -156,30 +162,44 @@ export const Sidebar: React.FC = () => {
 
       {/* User profile footer card */}
       {currentUser && (
-        <div
-          id="sidebar-user-card"
-          onClick={() => {
-            setSelectedUserProfileId(currentUser.id);
-            setActiveTab('profile');
-          }}
-          className="p-2.5 rounded-2xl bg-neutral-100/80 dark:bg-neutral-800/80 hover:bg-neutral-200/80 dark:hover:bg-neutral-700/60 cursor-pointer transition-colors flex items-center gap-3 border border-neutral-200/60 dark:border-neutral-700/60"
-        >
-          <img
-            src={currentUser.avatar}
-            alt={currentUser.fullName}
-            className="w-10 h-10 rounded-full object-cover shrink-0 border border-neutral-300 dark:border-neutral-600"
-          />
-          <div className="flex-1 min-w-0">
-            <p className="text-xs font-semibold text-neutral-900 dark:text-neutral-100 truncate flex items-center gap-1">
-              {currentUser.fullName}
-              {currentUser.isVerified && (
-                <CheckCircle className="w-3 h-3 text-sky-500 shrink-0" />
-              )}
-            </p>
-            <p className="text-[11px] text-neutral-500 dark:text-neutral-400 truncate">
-              @{currentUser.username}
-            </p>
+        <div className="flex items-center gap-1.5">
+          <div
+            id="sidebar-user-card"
+            onClick={() => {
+              setSelectedUserProfileId(currentUser.id);
+              setActiveTab('profile');
+            }}
+            className="flex-1 p-2 rounded-2xl bg-neutral-100/80 dark:bg-neutral-800/80 hover:bg-neutral-200/80 dark:hover:bg-neutral-700/60 cursor-pointer transition-colors flex items-center gap-2.5 border border-neutral-200/60 dark:border-neutral-700/60 min-w-0"
+          >
+            <img
+              src={currentUser.avatar}
+              alt={currentUser.fullName}
+              className="w-9 h-9 rounded-full object-cover shrink-0 border border-neutral-300 dark:border-neutral-600"
+            />
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-semibold text-neutral-900 dark:text-neutral-100 truncate flex items-center gap-1">
+                {currentUser.fullName}
+                {currentUser.isVerified && (
+                  <CheckCircle className="w-3 h-3 text-sky-500 shrink-0" />
+                )}
+              </p>
+              <p className="text-[11px] text-neutral-500 dark:text-neutral-400 truncate">
+                @{currentUser.username}
+              </p>
+            </div>
           </div>
+
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              logout();
+            }}
+            className="p-2.5 rounded-2xl text-neutral-500 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-neutral-200/60 dark:border-neutral-700/60 transition-colors shrink-0"
+            title={lang === 'bn' ? 'লগআউট করুন' : 'Log out'}
+          >
+            <LogOut className="w-4 h-4" />
+          </button>
         </div>
       )}
     </aside>

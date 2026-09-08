@@ -40,7 +40,10 @@ export const Navbar: React.FC = () => {
     soundEnabled,
     setSoundEnabled,
     setSelectedUserProfileId,
+    logout,
   } = useApp();
+
+  const isUserAdmin = currentUser?.email === 'soheltajbhola@gmail.com' || currentUser?.role === 'admin';
 
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
@@ -133,19 +136,21 @@ export const Navbar: React.FC = () => {
             <span>{lang === 'bn' ? 'পোস্ট' : 'Post'}</span>
           </button>
 
-          {/* Firebase Console Quick Nav */}
-          <button
-            onClick={() => setActiveTab('admin')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl transition-all ${
-              activeTab === 'admin'
-                ? 'bg-amber-600 text-white shadow-sm'
-                : 'bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 border border-amber-300/60 dark:border-amber-700/60 hover:bg-amber-100'
-            }`}
-            title="Firebase Console & Admin"
-          >
-            <Flame className="w-3.5 h-3.5 fill-current" />
-            <span className="hidden sm:inline">Firebase</span>
-          </button>
+          {/* Firebase Console Quick Nav (Admin Only) */}
+          {isUserAdmin && (
+            <button
+              onClick={() => setActiveTab('admin')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl transition-all ${
+                activeTab === 'admin'
+                  ? 'bg-amber-600 text-white shadow-sm'
+                  : 'bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 border border-amber-300/60 dark:border-amber-700/60 hover:bg-amber-100'
+              }`}
+              title="Firebase Console & Admin"
+            >
+              <Flame className="w-3.5 h-3.5 fill-current" />
+              <span className="hidden sm:inline">Firebase</span>
+            </button>
+          )}
 
           {/* Language Toggle */}
           <button
@@ -380,16 +385,18 @@ export const Navbar: React.FC = () => {
                     >
                       {lang === 'bn' ? 'আমার প্রোফাইল' : 'View Profile'}
                     </button>
-                    <button
-                      onClick={() => {
-                        setActiveTab('admin');
-                        setIsUserMenuOpen(false);
-                      }}
-                      className="w-full text-left px-3 py-1.5 rounded-lg text-xs hover:bg-neutral-100 dark:hover:bg-neutral-700/50 text-amber-600 dark:text-amber-400 font-semibold flex items-center justify-between"
-                    >
-                      <span>{lang === 'bn' ? 'ফায়ারবেস ও এডমিন' : 'Firebase Console'}</span>
-                      <Flame className="w-3.5 h-3.5 fill-current" />
-                    </button>
+                    {isUserAdmin && (
+                      <button
+                        onClick={() => {
+                          setActiveTab('admin');
+                          setIsUserMenuOpen(false);
+                        }}
+                        className="w-full text-left px-3 py-1.5 rounded-lg text-xs hover:bg-neutral-100 dark:hover:bg-neutral-700/50 text-amber-600 dark:text-amber-400 font-semibold flex items-center justify-between"
+                      >
+                        <span>{lang === 'bn' ? 'ফায়ারবেস ও এডমিন' : 'Firebase Console'}</span>
+                        <Flame className="w-3.5 h-3.5 fill-current" />
+                      </button>
+                    )}
                     <button
                       onClick={() => {
                         setIsAuthModalOpen(true);
@@ -397,7 +404,17 @@ export const Navbar: React.FC = () => {
                       }}
                       className="w-full text-left px-3 py-1.5 rounded-lg text-xs hover:bg-neutral-100 dark:hover:bg-neutral-700/50 text-neutral-700 dark:text-neutral-300"
                     >
-                      {lang === 'bn' ? 'ইমেইল দিয়ে লগইন / সাইনআপ' : 'Login / Register with Email'}
+                      {lang === 'bn' ? 'অ্যাকাউন্ট সেটিংস / তথ্য' : 'Account Details'}
+                    </button>
+                    <button
+                      onClick={() => {
+                        setIsUserMenuOpen(false);
+                        logout();
+                      }}
+                      className="w-full text-left px-3 py-1.5 rounded-lg text-xs hover:bg-rose-50 dark:hover:bg-rose-950/40 text-rose-600 dark:text-rose-400 font-semibold flex items-center justify-between transition-colors"
+                    >
+                      <span>{lang === 'bn' ? 'লগআউট (Log Out)' : 'Log Out'}</span>
+                      <LogOut className="w-3.5 h-3.5" />
                     </button>
                   </div>
                 </div>

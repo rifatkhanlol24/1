@@ -16,6 +16,8 @@ export const MobileNav: React.FC = () => {
     (m) => m.receiverId === currentUser?.id && !m.isRead
   ).length;
 
+  const isUserAdmin = currentUser?.email === 'soheltajbhola@gmail.com' || currentUser?.role === 'admin';
+
   return (
     <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-neutral-900/95 backdrop-blur-md border-t border-neutral-200 dark:border-neutral-800 px-2 py-1.5 flex items-center justify-around">
       <button
@@ -72,19 +74,21 @@ export const MobileNav: React.FC = () => {
         <span className="text-[10px]">Chat</span>
       </button>
 
-      {/* Firebase & Admin Quick Access on mobile */}
-      <button
-        id="mobile-nav-admin"
-        onClick={() => setActiveTab('admin')}
-        className={`flex flex-col items-center gap-0.5 p-1.5 rounded-xl transition-colors ${
-          activeTab === 'admin'
-            ? 'text-amber-500 font-bold'
-            : 'text-neutral-500 dark:text-neutral-400'
-        }`}
-      >
-        <Flame className="w-5 h-5 fill-current text-amber-500" />
-        <span className="text-[10px]">Admin</span>
-      </button>
+      {/* Firebase & Admin Quick Access on mobile (Admin Only) */}
+      {isUserAdmin && (
+        <button
+          id="mobile-nav-admin"
+          onClick={() => setActiveTab('admin')}
+          className={`flex flex-col items-center gap-0.5 p-1.5 rounded-xl transition-colors ${
+            activeTab === 'admin'
+              ? 'text-amber-500 font-bold'
+              : 'text-neutral-500 dark:text-neutral-400'
+          }`}
+        >
+          <Flame className="w-5 h-5 fill-current text-amber-500" />
+          <span className="text-[10px]">Admin</span>
+        </button>
+      )}
 
       <button
         id="mobile-nav-profile"

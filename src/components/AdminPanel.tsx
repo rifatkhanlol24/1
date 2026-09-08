@@ -13,6 +13,7 @@ import {
   RefreshCw,
   ExternalLink,
   ShieldCheck,
+  ShieldAlert,
   Flame,
   Database,
   Crown,
@@ -51,6 +52,7 @@ export const AdminPanel: React.FC = () => {
     adminSendAutoComments,
     restorePost,
     deletePost,
+    setActiveTab,
     lang,
     showToast,
   } = useApp();
@@ -222,6 +224,38 @@ export const AdminPanel: React.FC = () => {
     setEditingUser(null);
   };
 
+  // Strict Access Guard: Only soheltajbhola@gmail.com or users with role === 'admin' can access
+  if (!isAdmin) {
+    return (
+      <div id="admin-access-denied-card" className="max-w-xl mx-auto my-12 p-8 rounded-3xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 shadow-2xl text-center space-y-4 animate-in fade-in duration-200">
+        <div className="w-16 h-16 rounded-2xl bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-900 flex items-center justify-center text-rose-600 dark:text-rose-400 mx-auto shadow-inner">
+          <ShieldAlert className="w-8 h-8" />
+        </div>
+        <h2 className="text-xl font-black text-neutral-900 dark:text-neutral-100 tracking-tight">
+          {lang === 'bn' ? 'অ্যাডমিন অ্যাক্সেস সংরক্ষিত' : 'Admin Access Denied'}
+        </h2>
+        <p className="text-xs sm:text-sm text-neutral-600 dark:text-neutral-400 leading-relaxed max-w-md mx-auto">
+          {lang === 'bn'
+            ? 'শুধুমাত্র প্ল্যাটফর্ম অ্যাডমিন (soheltajbhola@gmail.com) অথবা অ্যাডমিন কর্তৃক অনুমতিপ্রাপ্ত ব্যবহারকারীগণই অ্যাডমিন প্যানেল অ্যাক্সেস করতে পারেন।'
+            : 'Only platform administrator (soheltajbhola@gmail.com) or users granted Admin role by an administrator can access this panel.'}
+        </p>
+        <div className="p-3 rounded-2xl bg-neutral-50 dark:bg-neutral-800/60 border border-neutral-200 dark:border-neutral-700/60 text-xs text-neutral-500 max-w-sm mx-auto">
+          <p className="font-mono text-[11px]">
+            Current: {currentUser?.email || currentUser?.username} (Role: {currentUser?.role || 'user'})
+          </p>
+        </div>
+        <div className="pt-2">
+          <button
+            onClick={() => setActiveTab('feed')}
+            className="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-md shadow-indigo-500/20 transition-all hover:scale-105"
+          >
+            {lang === 'bn' ? 'হোম ফিডে ফিরে যান' : 'Return to Feed'}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div id="admin-panel-container" className="space-y-6 max-w-5xl mx-auto pb-12">
       {/* Admin Header */}
@@ -241,29 +275,19 @@ export const AdminPanel: React.FC = () => {
           </p>
         </div>
 
-        {/* Quick Admin Role Self-Toggle */}
-        <div className="bg-neutral-800/80 p-3 rounded-2xl border border-neutral-700/60 text-xs shrink-0">
-          <p className="text-[11px] text-neutral-400 mb-1">
-            {lang === 'bn' ? 'বর্তমান প্রিভিউ রোল:' : 'Current Role:'}
+        {/* Verified Admin Info Badge */}
+        <div className="bg-neutral-800/90 p-3.5 rounded-2xl border border-neutral-700/80 text-xs shrink-0 shadow-sm space-y-1">
+          <p className="text-[10px] uppercase font-bold text-neutral-400 flex items-center gap-1">
+            <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+            <span>{lang === 'bn' ? 'লগইনকৃত অ্যাডমিন:' : 'Active Administrator:'}</span>
           </p>
-          <div className="flex items-center gap-1.5">
-            <span
-              className={`px-2.5 py-1 rounded-lg font-bold uppercase text-[10px] ${
-                isAdmin ? 'bg-amber-600 text-white' : 'bg-neutral-700 text-neutral-300'
-              }`}
-            >
-              {currentUser?.role || 'user'}
+          <div className="flex items-center gap-2">
+            <span className="px-2 py-0.5 rounded-md font-black uppercase text-[10px] bg-amber-500 text-neutral-950 shadow-xs">
+              {currentUser?.email === 'soheltajbhola@gmail.com' ? 'Super Admin' : 'Admin'}
             </span>
-            {!isAdmin && (
-              <button
-                onClick={() => {
-                  if (currentUser) adminChangeRole(currentUser.id, 'admin');
-                }}
-                className="text-[11px] text-amber-400 font-semibold hover:underline"
-              >
-                {lang === 'bn' ? 'এডমিন করুন' : 'Make Admin'}
-              </button>
-            )}
+            <span className="font-mono text-xs text-neutral-200">
+              {currentUser?.email}
+            </span>
           </div>
         </div>
       </div>
