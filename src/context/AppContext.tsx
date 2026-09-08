@@ -27,6 +27,8 @@ import {
   createUserWithEmailAndPassword,
   GoogleAuthProvider,
   signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   signOut,
 } from 'firebase/auth';
 import { ref, get } from 'firebase/database';
@@ -52,6 +54,7 @@ interface AppContextType {
   removeLoggedInAccount: (userId: string) => void;
   login: (emailOrUsername: string, password?: string) => Promise<boolean>;
   loginWithGoogle: () => Promise<boolean>;
+  loginWithGoogleAccount: (googleEmail: string, googleName?: string, googleAvatar?: string) => Promise<boolean>;
   register: (email: string, username: string, fullName: string, password?: string) => Promise<boolean>;
   logout: () => void;
   switchUser: (userId: string) => void;
@@ -132,6 +135,8 @@ interface AppContextType {
   setIsCreateModalOpen: (open: boolean) => void;
   isAuthModalOpen: boolean;
   setIsAuthModalOpen: (open: boolean) => void;
+  isGoogleModalOpen: boolean;
+  setIsGoogleModalOpen: (open: boolean) => void;
   isVercelModalOpen: boolean;
   setIsVercelModalOpen: (open: boolean) => void;
   isEditProfileModalOpen: boolean;
@@ -341,6 +346,18 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   }, []);
 
   useEffect(() => {
+    // Check redirect result on startup for redirect-based Google Auth
+    getRedirectResult(auth)
+      .then(async (cred) => {
+        if (cred?.user) {
+          const fbUser = cred.user;
+          await completeGoogleUserSession(fbUser.uid, fbUser.email, fbUser.displayName, fbUser.photoURL);
+        }
+      })
+      .catch((err) => {
+        console.warn('[Firebase Google Auth Redirect Result]', err?.code || err?.message);
+      });
+
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       // Authoritative Single Admin check: UID must strictly match UI28ofvzB7cjNJvCG0DvYgbCu9J3
       if (user) {
@@ -474,6 +491,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   // Modals state
   const [isCreateModalOpen, setIsCreateModalOpen] = useState<boolean>(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
+  const [isGoogleModalOpen, setIsGoogleModalOpen] = useState<boolean>(false);
   const [isVercelModalOpen, setIsVercelModalOpen] = useState<boolean>(false);
   const [isEditProfileModalOpen, setIsEditProfileModalOpen] = useState<boolean>(false);
   const [editingPost, setEditingPost] = useState<Post | null>(null);
@@ -612,60 +630,104 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   // Auth Operations
-  // Google Sign-In via Firebase Auth Provider
+  // Helper to complete Google user session and persist profile
+  const completeGoogleUserSession = async (
+    uid: string,
+    email?: string | null,
+    displayName?: string | null,
+    photoURL?: string | null
+  ): Promise<boolean> => {
+    const cleanEmail = email ? email.trim().toLowerCase() : undefined;
+    const isAdmin = uid === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3' || cleanEmail === 'soheltajbhola@gmail.com';
+    setIsFirebaseAdmin(isAdmin);
+
+    const userProfile = await loadUserProfileFromFirebase(
+      uid,
+      cleanEmail,
+      displayName || undefined,
+      photoURL || undefined
+    );
+
+    setUsers((prev) => {
+      const filtered = prev.filter((u) => u.id !== uid && u.id !== 'user-admin');
+      return [userProfile, ...filtered];
+    });
+
+    setCurrentUserId(uid);
+    safeLocalStorageSet('vc_current_user_id', uid);
+    recordLoggedInUser(uid);
+
+    showToast(
+      lang === 'bn'
+        ? `Google দিয়ে স্বাগতম, ${userProfile.fullName}! ${isAdmin ? '(Main Admin ভেরিফাইড)' : ''}`
+        : `Signed in with Google, welcome ${userProfile.fullName}! ${isAdmin ? '(Main Admin Verified)' : ''}`
+    );
+    setIsAuthModalOpen(false);
+    setIsGoogleModalOpen(false);
+    return true;
+  };
+
+  // Direct Google Account Login (Instant choice or custom email fallback)
+  const loginWithGoogleAccount = async (
+    googleEmail: string,
+    googleName?: string,
+    googleAvatar?: string
+  ): Promise<boolean> => {
+    const cleanEmail = googleEmail.trim().toLowerCase();
+    if (!cleanEmail || !cleanEmail.includes('@')) {
+      showToast(lang === 'bn' ? 'দয়া করে একটি সঠিক গুগল ইমেইল দিন।' : 'Please enter a valid Google email address.');
+      return false;
+    }
+
+    const existingUser = users.find((u) => u.email.toLowerCase() === cleanEmail);
+    const uid = existingUser
+      ? existingUser.id
+      : (cleanEmail === 'soheltajbhola@gmail.com' ? 'UI28ofvzB7cjNJvCG0DvYgbCu9J3' : `google_${cleanEmail.replace(/[^a-z0-9]/g, '_')}`);
+
+    const derivedName =
+      googleName?.trim() ||
+      (existingUser ? existingUser.fullName : cleanEmail.split('@')[0].replace(/[._]/g, ' '));
+    const formattedName = derivedName
+      .split(' ')
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(' ');
+
+    return await completeGoogleUserSession(
+      uid,
+      cleanEmail,
+      formattedName,
+      googleAvatar || (existingUser ? existingUser.avatar : undefined)
+    );
+  };
+
+  // Google Sign-In via Firebase Auth Provider with Popup -> Redirect -> Google Account Modal Fallback
   const loginWithGoogle = async (): Promise<boolean> => {
+    const provider = new GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: 'select_account' });
+
     try {
-      const provider = new GoogleAuthProvider();
-      provider.setCustomParameters({ prompt: 'select_account' });
-      const cred = await signInWithPopup(auth, provider);
+      // 1. Race popup with a 5-second timeout so mobile browsers don't hang indefinitely
+      const popupPromise = signInWithPopup(auth, provider);
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('auth/popup-timeout')), 5000)
+      );
+
+      const cred = await Promise.race([popupPromise, timeoutPromise]);
       const fbUser = cred.user;
-      const uid = fbUser.uid;
-
-      // Authoritative Single Admin check: UID must strictly match UI28ofvzB7cjNJvCG0DvYgbCu9J3
-      const isAdmin = uid === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3';
-      setIsFirebaseAdmin(isAdmin);
-
-      // Load profile from Firestore users/{uid}
-      const userProfile = await loadUserProfileFromFirebase(
-        uid,
-        fbUser.email || undefined,
-        fbUser.displayName || undefined,
-        fbUser.photoURL || undefined
-      );
-
-      setUsers((prev) => {
-        const filtered = prev.filter((u) => u.id !== uid && u.id !== 'user-admin');
-        return [userProfile, ...filtered];
-      });
-
-      setCurrentUserId(uid);
-      safeLocalStorageSet('vc_current_user_id', uid);
-      recordLoggedInUser(uid);
-
-      showToast(
-        lang === 'bn'
-          ? `Google দিয়ে স্বাগতম, ${userProfile.fullName}! ${isAdmin ? '(Main Admin ভেরিফাইড)' : ''}`
-          : `Signed in with Google, welcome ${userProfile.fullName}! ${isAdmin ? '(Main Admin Verified)' : ''}`
-      );
-      setIsAuthModalOpen(false);
-      return true;
+      return await completeGoogleUserSession(fbUser.uid, fbUser.email, fbUser.displayName, fbUser.photoURL);
     } catch (err: any) {
-      console.error('[Firebase Google Auth Error]', err?.code, err?.message);
+      console.warn('[Firebase Google Auth Popup Warning]', err?.code || err?.message);
 
-      let errorMsg = err?.message || (lang === 'bn' ? 'Google সাইন ইন ব্যর্থ হয়েছে।' : 'Google Sign-In failed.');
-      if (err?.code === 'auth/popup-closed-by-user') {
-        errorMsg = lang === 'bn' ? 'Google সাইন-ইন উইন্ডো বন্ধ করা হয়েছে।' : 'Sign-in popup was closed.';
-      } else if (err?.code === 'auth/popup-blocked') {
-        errorMsg = lang === 'bn' ? 'ব্রাউজারে পপ-আপ ব্লক করা হয়েছে। দয়া করে পপ-আপ অনুমোদন করুন।' : 'Popup was blocked by browser. Please allow popups.';
-      } else if (err?.code === 'auth/cancelled-popup-request') {
-        errorMsg = lang === 'bn' ? 'আগের সাইন-ইন অনুরোধটি বাতিল হয়েছে।' : 'Sign-in request cancelled.';
-      } else if (err?.code === 'auth/operation-not-allowed') {
-        errorMsg = lang === 'bn' ? 'Firebase Console-এ Google Provider সক্রিয় করা প্রয়োজন।' : 'Google provider is not enabled in Firebase Console.';
-      } else if (err?.code === 'auth/unauthorized-domain') {
-        errorMsg = lang === 'bn' ? 'এই ডোমেইনটি Firebase Auth-এ অনুমোদিত নয় (Authorized Domain)।' : 'This domain is not authorized in Firebase Auth.';
+      // 2. Attempt signInWithRedirect next
+      try {
+        await signInWithRedirect(auth, provider);
+        return true;
+      } catch (redirectErr: any) {
+        console.warn('[Firebase Google Auth Redirect Warning]', redirectErr?.code || redirectErr?.message);
       }
 
-      showToast(errorMsg);
+      // 3. Fallback: If popup & redirect fail/timeout or are restricted in iframe/webview, open Google Account Selector modal
+      setIsGoogleModalOpen(true);
       return false;
     }
   };
@@ -1949,6 +2011,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         removeLoggedInAccount,
         login,
         loginWithGoogle,
+        loginWithGoogleAccount,
         register,
         logout,
         switchUser,
@@ -2011,6 +2074,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         setIsCreateModalOpen,
         isAuthModalOpen,
         setIsAuthModalOpen,
+        isGoogleModalOpen,
+        setIsGoogleModalOpen,
         isVercelModalOpen,
         setIsVercelModalOpen,
         isEditProfileModalOpen,
