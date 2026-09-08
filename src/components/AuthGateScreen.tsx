@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { PwaInstallSystem } from './PwaInstallSystem';
+import { Logo } from './Logo';
 
 export const AuthGateScreen: React.FC = () => {
   const {
@@ -153,22 +154,7 @@ export const AuthGateScreen: React.FC = () => {
       {/* Top Bar Controls */}
       <header className="w-full max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
         {/* Brand */}
-        <div className="flex items-center gap-2.5">
-          <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-amber-500 via-rose-500 to-indigo-600 flex items-center justify-center text-white shadow-lg shadow-indigo-500/25 font-black text-lg">
-            1
-          </div>
-          <div>
-            <span className="font-black text-lg tracking-tight text-neutral-900 dark:text-neutral-50 flex items-center gap-1.5">
-              1 social
-              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/80 text-amber-700 dark:text-amber-300 font-bold border border-amber-300/60">
-                Firebase
-              </span>
-            </span>
-            <p className="text-[11px] text-neutral-500 dark:text-neutral-400 leading-none">
-              {lang === 'bn' ? 'সোশ্যাল নেটওয়ার্ক ও লাইভ প্ল্যাটফর্ম' : 'Next-Gen Social Network'}
-            </p>
-          </div>
-        </div>
+        <Logo subtitle={lang === 'bn' ? 'সোশ্যাল নেটওয়ার্ক ও লাইভ প্ল্যাটফর্ম' : 'Next-Gen Social Network'} />
 
         {/* Theme & Language Toggles */}
         <div className="flex items-center gap-2">

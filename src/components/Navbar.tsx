@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { User } from '../types';
+import { Logo } from './Logo';
 
 export const Navbar: React.FC = () => {
   const {
@@ -102,22 +103,9 @@ export const Navbar: React.FC = () => {
             setActiveTab('feed');
             setSelectedUserProfileId(null);
           }}
-          className="flex items-center gap-2.5 cursor-pointer select-none group shrink-0"
+          className="cursor-pointer"
         >
-          <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-amber-500 via-rose-500 to-indigo-600 flex items-center justify-center text-white shadow-md shadow-indigo-500/20 group-hover:scale-105 transition-transform font-black text-lg">
-            1
-          </div>
-          <div className="hidden sm:block">
-            <span className="font-black text-lg tracking-tight text-neutral-900 dark:text-neutral-50 flex items-center gap-1.5">
-              1 social
-              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/70 text-amber-700 dark:text-amber-300 font-bold border border-amber-300/60">
-                Firebase
-              </span>
-            </span>
-            <p className="text-[11px] text-neutral-500 dark:text-neutral-400 leading-none">
-              {lang === 'bn' ? 'সোশ্যাল ও লাইভ ম্যানেজমেন্ট' : 'Social & Live Management'}
-            </p>
-          </div>
+          <Logo subtitle={lang === 'bn' ? 'সোশ্যাল ও লাইভ ম্যানেজমেন্ট' : 'Social & Live Management'} />
         </div>
 
         {/* Global Search Bar */}

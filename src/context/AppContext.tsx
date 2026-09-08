@@ -30,6 +30,7 @@ import {
 } from 'firebase/auth';
 import { getFirestore, doc, getDoc } from 'firebase/firestore';
 import { app, auth, db } from '../lib/firebase';
+import { firebaseService } from '../lib/firebaseService';
 
 export type NavigationTab =
   | 'feed'
@@ -301,8 +302,36 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       createdAt: new Date().toISOString(),
     };
 
+    try {
+      await firebaseService.saveUser(defaultUser);
+    } catch (e) {
+      console.warn('Could not save defaultUser to Firestore:', e);
+    }
+
     return defaultUser;
   };
+
+  // Fetch real users from Firestore on mount
+  useEffect(() => {
+    firebaseService.getUsers().then((firestoreUsers) => {
+      if (firestoreUsers && firestoreUsers.length > 0) {
+        setUsers((prev) => {
+          const map = new Map<string, User>();
+          for (const u of firestoreUsers) {
+            map.set(u.id, u);
+          }
+          for (const u of prev) {
+            if (!map.has(u.id)) {
+              map.set(u.id, u);
+            }
+          }
+          return Array.from(map.values());
+        });
+      }
+    }).catch((err) => {
+      console.warn('[Firebase] Could not fetch users from Firestore:', err);
+    });
+  }, []);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -814,6 +843,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       createdAt: new Date().toISOString(),
     };
     setUsers((prev) => [newUser, ...prev]);
+    firebaseService.saveUser(newUser).catch(err => console.warn('Failed to save registered user to Firestore:', err));
     setCurrentUserId(newUser.id);
     recordLoggedInUser(newUser.id);
     showToast(lang === 'bn' ? `স্বাগতম ${trimmedFullName}! অ্যাকাউন্ট তৈরি সম্পন্ন।` : `Welcome ${trimmedFullName}! Account created.`);
@@ -1004,9 +1034,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       finalData.links = finalData.links.slice(0, 10);
     }
 
-    setUsers((prev) =>
-      prev.map((u) => (u.id === targetId ? { ...u, ...finalData } : u))
-    );
+    setUsers((prev) => {
+      const updated = prev.map((u) => (u.id === targetId ? { ...u, ...finalData } : u));
+      const updatedUser = updated.find((u) => u.id === targetId);
+      if (updatedUser) {
+        firebaseService.saveUser(updatedUser).catch(err => console.warn('Failed to save updated user to Firestore:', err));
+      }
+      return updated;
+    });
 
     // Synchronize authorName / authorUsername across posts for immediate reflection
     if (finalData.fullName || finalData.username || finalData.avatar) {
