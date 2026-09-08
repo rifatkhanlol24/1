@@ -46,7 +46,7 @@ export const INITIAL_USERS: User[] = [
     location: 'Sylhet, Bangladesh',
     website: 'https://instagram.com/sarah_visuals',
     links: [
-      { id: 'l-4', title: 'Instagram Portfolio', url: 'https://instagram.com/sarah_visuals' },
+      { id: 'l-4', title: 'website', url: 'https://techlystb.blogspot.com' },
       { id: 'l-5', title: '500px Gallery', url: 'https://500px.com/sarah' },
     ],
     statusBadge: '📸 Featured Creator',
