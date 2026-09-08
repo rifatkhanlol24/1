@@ -1,0 +1,75 @@
+{
+  "entities": {
+    "users": {
+      "description": "User profiles with roles and account metadata",
+      "fields": {
+        "id": { "type": "string", "description": "Unique user ID" },
+        "email": { "type": "string", "description": "User email address" },
+        "fullName": { "type": "string", "description": "Full display name" },
+        "username": { "type": "string", "description": "Unique handle without @" },
+        "avatar": { "type": "string", "description": "Profile picture URL" },
+        "coverImage": { "type": "string", "description": "Profile banner URL" },
+        "bio": { "type": "string", "description": "Short user bio" },
+        "role": { "type": "string", "description": "Role: user, moderator, admin" },
+        "isVerified": { "type": "boolean", "description": "Verified status badge" },
+        "isBanned": { "type": "boolean", "description": "Whether account is banned" },
+        "followers": { "type": "array", "description": "List of user IDs following this user" },
+        "following": { "type": "array", "description": "List of user IDs this user follows" },
+        "location": { "type": "string", "description": "Optional location" },
+        "website": { "type": "string", "description": "Optional website link" },
+        "statusBadge": { "type": "string", "description": "Custom status text" },
+        "createdAt": { "type": "string", "description": "Creation timestamp ISO" }
+      }
+    },
+    "posts": {
+      "description": "User shared posts and photos",
+      "fields": {
+        "id": { "type": "string", "description": "Unique post ID" },
+        "authorId": { "type": "string", "description": "Author UID" },
+        "authorName": { "type": "string", "description": "Author full name" },
+        "authorUsername": { "type": "string", "description": "Author handle" },
+        "authorAvatar": { "type": "string", "description": "Author avatar URL" },
+        "content": { "type": "string", "description": "Post caption and description" },
+        "imageUrl": { "type": "string", "description": "Uploaded or attached image URL" },
+        "filter": { "type": "string", "description": "Filter preset applied" },
+        "likes": { "type": "array", "description": "Array of user IDs who liked" },
+        "savedBy": { "type": "array", "description": "Array of user IDs who bookmarked" },
+        "tags": { "type": "array", "description": "List of hashtags" },
+        "location": { "type": "string", "description": "Location tag" },
+        "createdAt": { "type": "string", "description": "Creation timestamp ISO" },
+        "comments": { "type": "array", "description": "List of comment objects" },
+        "sharesCount": { "type": "number", "description": "Number of shares" },
+        "isFlagged": { "type": "boolean", "description": "Flagged for moderation" },
+        "flagReason": { "type": "string", "description": "Reason flagged" }
+      }
+    },
+    "messages": {
+      "description": "Direct chat messages between users",
+      "fields": {
+        "id": { "type": "string", "description": "Unique message ID" },
+        "conversationId": { "type": "string", "description": "Conversation thread identifier" },
+        "senderId": { "type": "string", "description": "Sender UID" },
+        "receiverId": { "type": "string", "description": "Receiver UID" },
+        "text": { "type": "string", "description": "Message content" },
+        "imageUrl": { "type": "string", "description": "Optional attached image" },
+        "createdAt": { "type": "string", "description": "Message timestamp ISO" },
+        "isRead": { "type": "boolean", "description": "Read receipt" }
+      }
+    },
+    "notifications": {
+      "description": "User notifications and activity updates",
+      "fields": {
+        "id": { "type": "string", "description": "Notification ID" },
+        "userId": { "type": "string", "description": "Target recipient UID" },
+        "actorId": { "type": "string", "description": "Actor UID" },
+        "actorName": { "type": "string", "description": "Actor display name" },
+        "actorAvatar": { "type": "string", "description": "Actor avatar URL" },
+        "type": { "type": "string", "description": "like, comment, follow, message, system" },
+        "text": { "type": "string", "description": "Notification message" },
+        "postId": { "type": "string", "description": "Optional post ID" },
+        "createdAt": { "type": "string", "description": "Timestamp ISO" },
+        "isRead": { "type": "boolean", "description": "Whether read" }
+      }
+    }
+  }
+}

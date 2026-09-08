@@ -9,6 +9,7 @@ import {
   PlusSquare,
   Globe,
   CheckCircle,
+  Flame,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
@@ -106,27 +107,23 @@ export const Sidebar: React.FC = () => {
             );
           })}
 
-          {/* Admin Panel button */}
+          {/* Firebase & Admin Console button */}
           <button
             id="sidebar-nav-admin"
             onClick={() => setActiveTab('admin')}
-            className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all ${
+            className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-bold transition-all ${
               activeTab === 'admin'
-                ? 'bg-purple-600 text-white shadow-sm'
-                : currentUser?.role === 'admin'
-                ? 'text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-950/40'
-                : 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800'
+                ? 'bg-amber-600 text-white shadow-sm shadow-amber-600/20'
+                : 'text-amber-700 dark:text-amber-400 bg-amber-50/70 dark:bg-amber-950/30 hover:bg-amber-100 dark:hover:bg-amber-950/60 border border-amber-200/60 dark:border-amber-900/40'
             }`}
           >
             <div className="flex items-center gap-3">
-              <Shield className="w-5 h-5 text-purple-500" />
-              <span>{lang === 'bn' ? 'এডমিন ড্যাশবোর্ড' : 'Admin Panel'}</span>
+              <Flame className="w-5 h-5 fill-current text-amber-500" />
+              <span>{lang === 'bn' ? 'ফায়ারবেস ও এডমিন' : 'Firebase & Admin'}</span>
             </div>
-            {currentUser?.role === 'admin' && (
-              <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300 font-bold">
-                Admin
-              </span>
-            )}
+            <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/80 text-amber-800 dark:text-amber-200 font-black">
+              LIVE
+            </span>
           </button>
         </nav>
 

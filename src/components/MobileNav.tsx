@@ -1,5 +1,5 @@
 import React from 'react';
-import { Home, Compass, Plus, MessageCircle, User } from 'lucide-react';
+import { Home, Compass, Plus, MessageCircle, User, Flame } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
 export const MobileNav: React.FC = () => {
@@ -21,9 +21,9 @@ export const MobileNav: React.FC = () => {
       <button
         id="mobile-nav-feed"
         onClick={() => setActiveTab('feed')}
-        className={`flex flex-col items-center gap-1 p-2 rounded-xl transition-colors ${
+        className={`flex flex-col items-center gap-0.5 p-1.5 rounded-xl transition-colors ${
           activeTab === 'feed'
-            ? 'text-indigo-600 dark:text-indigo-400 font-semibold'
+            ? 'text-indigo-600 dark:text-indigo-400 font-bold'
             : 'text-neutral-500 dark:text-neutral-400'
         }`}
       >
@@ -34,9 +34,9 @@ export const MobileNav: React.FC = () => {
       <button
         id="mobile-nav-explore"
         onClick={() => setActiveTab('explore')}
-        className={`flex flex-col items-center gap-1 p-2 rounded-xl transition-colors ${
+        className={`flex flex-col items-center gap-0.5 p-1.5 rounded-xl transition-colors ${
           activeTab === 'explore'
-            ? 'text-indigo-600 dark:text-indigo-400 font-semibold'
+            ? 'text-indigo-600 dark:text-indigo-400 font-bold'
             : 'text-neutral-500 dark:text-neutral-400'
         }`}
       >
@@ -48,28 +48,42 @@ export const MobileNav: React.FC = () => {
       <button
         id="mobile-nav-create"
         onClick={() => setIsCreateModalOpen(true)}
-        className="w-12 h-12 rounded-full bg-indigo-600 text-white flex items-center justify-center -mt-5 shadow-lg shadow-indigo-500/30 hover:bg-indigo-700 active:scale-95 transition-all"
+        className="w-11 h-11 rounded-full bg-indigo-600 text-white flex items-center justify-center -mt-4 shadow-lg shadow-indigo-500/30 hover:bg-indigo-700 active:scale-95 transition-all"
         aria-label="Create post"
       >
-        <Plus className="w-6 h-6" />
+        <Plus className="w-5 h-5" />
       </button>
 
       <button
         id="mobile-nav-messages"
         onClick={() => setActiveTab('messages')}
-        className={`flex flex-col items-center gap-1 p-2 rounded-xl relative transition-colors ${
+        className={`flex flex-col items-center gap-0.5 p-1.5 rounded-xl relative transition-colors ${
           activeTab === 'messages'
-            ? 'text-indigo-600 dark:text-indigo-400 font-semibold'
+            ? 'text-indigo-600 dark:text-indigo-400 font-bold'
             : 'text-neutral-500 dark:text-neutral-400'
         }`}
       >
         <MessageCircle className="w-5 h-5" />
         {unreadMessagesCount > 0 && (
-          <span className="absolute top-1 right-2 w-4 h-4 text-[9px] bg-rose-500 text-white rounded-full flex items-center justify-center font-bold">
+          <span className="absolute top-1 right-1 w-3.5 h-3.5 text-[8px] bg-rose-500 text-white rounded-full flex items-center justify-center font-bold">
             {unreadMessagesCount}
           </span>
         )}
         <span className="text-[10px]">Chat</span>
+      </button>
+
+      {/* Firebase & Admin Quick Access on mobile */}
+      <button
+        id="mobile-nav-admin"
+        onClick={() => setActiveTab('admin')}
+        className={`flex flex-col items-center gap-0.5 p-1.5 rounded-xl transition-colors ${
+          activeTab === 'admin'
+            ? 'text-amber-500 font-bold'
+            : 'text-neutral-500 dark:text-neutral-400'
+        }`}
+      >
+        <Flame className="w-5 h-5 fill-current text-amber-500" />
+        <span className="text-[10px]">Admin</span>
       </button>
 
       <button
@@ -80,9 +94,9 @@ export const MobileNav: React.FC = () => {
           }
           setActiveTab('profile');
         }}
-        className={`flex flex-col items-center gap-1 p-2 rounded-xl transition-colors ${
+        className={`flex flex-col items-center gap-0.5 p-1.5 rounded-xl transition-colors ${
           activeTab === 'profile'
-            ? 'text-indigo-600 dark:text-indigo-400 font-semibold'
+            ? 'text-indigo-600 dark:text-indigo-400 font-bold'
             : 'text-neutral-500 dark:text-neutral-400'
         }`}
       >

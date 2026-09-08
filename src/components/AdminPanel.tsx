@@ -13,10 +13,12 @@ import {
   RefreshCw,
   ExternalLink,
   ShieldCheck,
-  Award,
+  Flame,
+  Database,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { UserRole } from '../types';
+import { FirebaseConsole } from './FirebaseConsole';
 
 export const AdminPanel: React.FC = () => {
   const {
@@ -29,12 +31,11 @@ export const AdminPanel: React.FC = () => {
     adminBroadcastNotification,
     restorePost,
     deletePost,
-    updateProfile,
     lang,
     showToast,
   } = useApp();
 
-  const [activeSubTab, setActiveSubTab] = useState<'users' | 'moderation' | 'broadcast'>('users');
+  const [activeSubTab, setActiveSubTab] = useState<'firebase' | 'users' | 'moderation' | 'broadcast'>('firebase');
   const [userFilter, setUserFilter] = useState('');
   const [broadcastTitle, setBroadcastTitle] = useState('');
   const [broadcastMsg, setBroadcastMsg] = useState('');
@@ -70,22 +71,22 @@ export const AdminPanel: React.FC = () => {
       {/* Admin Header */}
       <div className="p-6 rounded-3xl bg-neutral-900 text-white shadow-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border border-neutral-800">
         <div>
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-500/20 text-purple-300 text-xs font-semibold mb-2">
-            <ShieldCheck className="w-3.5 h-3.5" />
-            <span>{lang === 'bn' ? 'এডমিন ও মডারেশন প্যানেল' : 'Platform Administration'}</span>
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/20 text-amber-300 text-xs font-semibold mb-2">
+            <Flame className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+            <span>1 social • Firebase &amp; Admin Control</span>
           </div>
           <h2 className="text-xl sm:text-2xl font-black tracking-tight">
-            {lang === 'bn' ? 'সিস্টেম ও ডেটা ম্যানেজমেন্ট ড্যাশবোর্ড' : 'System & Data Control Center'}
+            {lang === 'bn' ? 'ফায়ারবেস ও সিস্টেম অ্যাডমিন কন্ট্রোল' : 'Firebase & System Admin Console'}
           </h2>
           <p className="text-xs sm:text-sm text-neutral-400 mt-1">
             {lang === 'bn'
-              ? 'ব্যবহারকারী পরিচালনা, কন্টেন্ট মডারেশন এবং সিস্টেম ঘোষণা নিয়ন্ত্রণ করুন।'
-              : 'Manage platform users, moderate flagged posts, and send broadcast alerts.'}
+              ? 'ফায়ারবেস ক্লাউড ফায়ারস্টোর ডাটাবেজ, ব্যবহারকারী পরিচালনা, কন্টেন্ট মডারেশন এবং সিস্টেম নোটিফিকেশন নিয়ন্ত্রণ করুন।'
+              : 'Manage Cloud Firestore database, user accounts, content moderation, and live system broadcasts.'}
           </p>
         </div>
 
         {/* Quick Admin Role Self-Toggle for preview ease */}
-        <div className="bg-neutral-800/80 p-3 rounded-2xl border border-neutral-700/60 text-xs">
+        <div className="bg-neutral-800/80 p-3 rounded-2xl border border-neutral-700/60 text-xs shrink-0">
           <p className="text-[11px] text-neutral-400 mb-1">
             {lang === 'bn' ? 'বর্তমান প্রিভিউ রোল:' : 'Current Role:'}
           </p>
@@ -93,7 +94,7 @@ export const AdminPanel: React.FC = () => {
             <span
               className={`px-2.5 py-1 rounded-lg font-bold uppercase text-[10px] ${
                 isAdmin
-                  ? 'bg-purple-600 text-white'
+                  ? 'bg-amber-600 text-white'
                   : 'bg-neutral-700 text-neutral-300'
               }`}
             >
@@ -104,7 +105,7 @@ export const AdminPanel: React.FC = () => {
                 onClick={() => {
                   if (currentUser) adminChangeRole(currentUser.id, 'admin');
                 }}
-                className="text-[11px] text-indigo-400 font-semibold hover:underline"
+                className="text-[11px] text-amber-400 font-semibold hover:underline"
               >
                 {lang === 'bn' ? 'এডমিন করুন' : 'Make Admin'}
               </button>
@@ -115,25 +116,25 @@ export const AdminPanel: React.FC = () => {
 
       {/* Metrics Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="p-4 rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900">
+        <div className="p-4 rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-xs">
           <div className="flex items-center justify-between text-neutral-500 mb-2">
             <span className="text-xs font-medium">{lang === 'bn' ? 'মোট ব্যবহারকারী' : 'Total Users'}</span>
-            <Users className="w-4 h-4 text-indigo-500" />
+            <Users className="w-4 h-4 text-amber-500" />
           </div>
           <p className="text-2xl font-black text-neutral-900 dark:text-neutral-100">{totalUsers}</p>
-          <span className="text-[10px] text-emerald-500 font-medium">100% Active Directory</span>
+          <span className="text-[10px] text-emerald-500 font-medium">Firestore Synced</span>
         </div>
 
-        <div className="p-4 rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900">
+        <div className="p-4 rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-xs">
           <div className="flex items-center justify-between text-neutral-500 mb-2">
             <span className="text-xs font-medium">{lang === 'bn' ? 'মোট পোস্ট' : 'Total Posts'}</span>
             <FileText className="w-4 h-4 text-blue-500" />
           </div>
           <p className="text-2xl font-black text-neutral-900 dark:text-neutral-100">{totalPosts}</p>
-          <span className="text-[10px] text-blue-500 font-medium">Real-time Feed Content</span>
+          <span className="text-[10px] text-blue-500 font-medium">Real-time Feed</span>
         </div>
 
-        <div className="p-4 rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900">
+        <div className="p-4 rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-xs">
           <div className="flex items-center justify-between text-neutral-500 mb-2">
             <span className="text-xs font-medium">{lang === 'bn' ? 'রিপোর্টকৃত কন্টেন্ট' : 'Flagged Reports'}</span>
             <AlertTriangle className="w-4 h-4 text-amber-500" />
@@ -142,7 +143,7 @@ export const AdminPanel: React.FC = () => {
           <span className="text-[10px] text-amber-500 font-medium">Requires Review</span>
         </div>
 
-        <div className="p-4 rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900">
+        <div className="p-4 rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-xs">
           <div className="flex items-center justify-between text-neutral-500 mb-2">
             <span className="text-xs font-medium">{lang === 'bn' ? 'মোট এনগেজমেন্ট' : 'Engagements'}</span>
             <CheckCircle className="w-4 h-4 text-emerald-500" />
@@ -153,10 +154,22 @@ export const AdminPanel: React.FC = () => {
       </div>
 
       {/* Admin Tab Switcher */}
-      <div className="flex items-center gap-2 border-b border-neutral-200 dark:border-neutral-800 pb-2">
+      <div className="flex items-center gap-2 border-b border-neutral-200 dark:border-neutral-800 pb-2 overflow-x-auto">
+        <button
+          onClick={() => setActiveSubTab('firebase')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 ${
+            activeSubTab === 'firebase'
+              ? 'bg-amber-600 text-white shadow-sm'
+              : 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800'
+          }`}
+        >
+          <Flame className="w-3.5 h-3.5 fill-current" />
+          <span>{lang === 'bn' ? 'ফায়ারবেস ক্লাউড কনসোল' : 'Firebase Cloud Console'}</span>
+        </button>
+
         <button
           onClick={() => setActiveSubTab('users')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all shrink-0 ${
             activeSubTab === 'users'
               ? 'bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 shadow-sm'
               : 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800'
@@ -168,7 +181,7 @@ export const AdminPanel: React.FC = () => {
 
         <button
           onClick={() => setActiveSubTab('moderation')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all shrink-0 ${
             activeSubTab === 'moderation'
               ? 'bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 shadow-sm'
               : 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800'
@@ -180,7 +193,7 @@ export const AdminPanel: React.FC = () => {
 
         <button
           onClick={() => setActiveSubTab('broadcast')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all shrink-0 ${
             activeSubTab === 'broadcast'
               ? 'bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 shadow-sm'
               : 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800'
@@ -190,6 +203,9 @@ export const AdminPanel: React.FC = () => {
           <span>{lang === 'bn' ? 'পুশ ব্রডকাস্ট বার্তা' : 'Broadcast Alert'}</span>
         </button>
       </div>
+
+      {/* Tab 0: Integrated Firebase Console */}
+      {activeSubTab === 'firebase' && <FirebaseConsole />}
 
       {/* Tab 1: User Management Table */}
       {activeSubTab === 'users' && (
@@ -428,7 +444,7 @@ export const AdminPanel: React.FC = () => {
                 type="text"
                 value={broadcastTitle}
                 onChange={(e) => setBroadcastTitle(e.target.value)}
-                placeholder="e.g. Platform Update v2.0 Live!"
+                placeholder="e.g. 1 social Platform Update Live!"
                 className="w-full text-xs p-2.5 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100"
                 required
               />

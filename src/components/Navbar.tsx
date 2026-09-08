@@ -12,6 +12,7 @@ import {
   Sparkles,
   Volume2,
   VolumeX,
+  Flame,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
@@ -65,20 +66,20 @@ export const Navbar: React.FC = () => {
             setActiveTab('feed');
             setSelectedUserProfileId(null);
           }}
-          className="flex items-center gap-2.5 cursor-pointer select-none group"
+          className="flex items-center gap-2.5 cursor-pointer select-none group shrink-0"
         >
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 via-blue-600 to-teal-400 flex items-center justify-center text-white shadow-md shadow-indigo-500/20 group-hover:scale-105 transition-transform">
-            <Sparkles className="w-5 h-5 animate-pulse" />
+          <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-amber-500 via-rose-500 to-indigo-600 flex items-center justify-center text-white shadow-md shadow-indigo-500/20 group-hover:scale-105 transition-transform font-black text-lg">
+            1
           </div>
           <div className="hidden sm:block">
-            <span className="font-bold text-lg tracking-tight text-neutral-900 dark:text-neutral-50 flex items-center gap-1.5">
-              VibeConnect
-              <span className="text-xs px-1.5 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-950/70 text-indigo-700 dark:text-indigo-300 font-medium">
-                Live
+            <span className="font-black text-lg tracking-tight text-neutral-900 dark:text-neutral-50 flex items-center gap-1.5">
+              1 social
+              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/70 text-amber-700 dark:text-amber-300 font-bold border border-amber-300/60">
+                Firebase
               </span>
             </span>
             <p className="text-[11px] text-neutral-500 dark:text-neutral-400 leading-none">
-              {lang === 'bn' ? 'সোশ্যাল ও লাইভ চ্যাট' : 'Social & Live Chat'}
+              {lang === 'bn' ? 'সোশ্যাল ও লাইভ ম্যানেজমেন্ট' : 'Social & Live Management'}
             </p>
           </div>
         </div>
@@ -130,6 +131,20 @@ export const Navbar: React.FC = () => {
           >
             <Plus className="w-4 h-4" />
             <span>{lang === 'bn' ? 'পোস্ট' : 'Post'}</span>
+          </button>
+
+          {/* Firebase Console Quick Nav */}
+          <button
+            onClick={() => setActiveTab('admin')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl transition-all ${
+              activeTab === 'admin'
+                ? 'bg-amber-600 text-white shadow-sm'
+                : 'bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 border border-amber-300/60 dark:border-amber-700/60 hover:bg-amber-100'
+            }`}
+            title="Firebase Console & Admin"
+          >
+            <Flame className="w-3.5 h-3.5 fill-current" />
+            <span className="hidden sm:inline">Firebase</span>
           </button>
 
           {/* Language Toggle */}
@@ -303,7 +318,7 @@ export const Navbar: React.FC = () => {
                     <p className="font-semibold text-sm truncate flex items-center gap-1.5">
                       {currentUser.fullName}
                       {currentUser.role === 'admin' && (
-                        <ShieldCheck className="w-3.5 h-3.5 text-indigo-500" />
+                        <ShieldCheck className="w-3.5 h-3.5 text-amber-500" />
                       )}
                     </p>
                     <p className="text-xs text-neutral-400 truncate">
@@ -338,13 +353,13 @@ export const Navbar: React.FC = () => {
                           <div className="flex items-center gap-2 truncate">
                             <img
                               src={u.avatar}
-                              alt=""
+                              alt={u.fullName}
                               className="w-5 h-5 rounded-full object-cover"
                             />
                             <span className="truncate">{u.fullName}</span>
                           </div>
                           {u.role === 'admin' && (
-                            <span className="text-[10px] text-amber-500 font-mono">
+                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-purple-100 dark:bg-purple-950 text-purple-600 dark:text-purple-300 font-bold uppercase">
                               Admin
                             </span>
                           )}
@@ -353,6 +368,7 @@ export const Navbar: React.FC = () => {
                     </div>
                   </div>
 
+                  {/* Links */}
                   <div className="pt-2 border-t border-neutral-100 dark:border-neutral-700/60 mt-2 space-y-1">
                     <button
                       onClick={() => {
@@ -360,34 +376,28 @@ export const Navbar: React.FC = () => {
                         setActiveTab('profile');
                         setIsUserMenuOpen(false);
                       }}
-                      className="w-full flex items-center gap-2 px-2.5 py-1.5 text-xs text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-700/50 rounded-lg"
+                      className="w-full text-left px-3 py-1.5 rounded-lg text-xs hover:bg-neutral-100 dark:hover:bg-neutral-700/50 text-neutral-700 dark:text-neutral-300"
                     >
-                      <UserCheck className="w-3.5 h-3.5 text-neutral-400" />
-                      {lang === 'bn' ? 'আমার প্রোফাইল' : 'My Profile'}
+                      {lang === 'bn' ? 'আমার প্রোফাইল' : 'View Profile'}
                     </button>
-
-                    {currentUser.role === 'admin' && (
-                      <button
-                        onClick={() => {
-                          setActiveTab('admin');
-                          setIsUserMenuOpen(false);
-                        }}
-                        className="w-full flex items-center gap-2 px-2.5 py-1.5 text-xs text-indigo-600 dark:text-indigo-400 font-medium hover:bg-indigo-50 dark:hover:bg-indigo-950/50 rounded-lg"
-                      >
-                        <ShieldCheck className="w-3.5 h-3.5" />
-                        {lang === 'bn' ? 'এডমিন ড্যাশবোর্ড' : 'Admin Dashboard'}
-                      </button>
-                    )}
-
+                    <button
+                      onClick={() => {
+                        setActiveTab('admin');
+                        setIsUserMenuOpen(false);
+                      }}
+                      className="w-full text-left px-3 py-1.5 rounded-lg text-xs hover:bg-neutral-100 dark:hover:bg-neutral-700/50 text-amber-600 dark:text-amber-400 font-semibold flex items-center justify-between"
+                    >
+                      <span>{lang === 'bn' ? 'ফায়ারবেস ও এডমিন' : 'Firebase Console'}</span>
+                      <Flame className="w-3.5 h-3.5 fill-current" />
+                    </button>
                     <button
                       onClick={() => {
                         setIsAuthModalOpen(true);
                         setIsUserMenuOpen(false);
                       }}
-                      className="w-full flex items-center gap-2 px-2.5 py-1.5 text-xs text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-lg"
+                      className="w-full text-left px-3 py-1.5 rounded-lg text-xs hover:bg-neutral-100 dark:hover:bg-neutral-700/50 text-neutral-700 dark:text-neutral-300"
                     >
-                      <LogOut className="w-3.5 h-3.5" />
-                      {lang === 'bn' ? 'অন্য ইমেইলে লগইন' : 'Login with another Email'}
+                      {lang === 'bn' ? 'ইমেইল দিয়ে লগইন / সাইনআপ' : 'Login / Register with Email'}
                     </button>
                   </div>
                 </div>
@@ -395,11 +405,10 @@ export const Navbar: React.FC = () => {
             </div>
           ) : (
             <button
-              id="login-btn"
               onClick={() => setIsAuthModalOpen(true)}
-              className="px-3.5 py-1.5 text-xs font-semibold rounded-full bg-indigo-600 text-white hover:bg-indigo-700 transition-colors"
+              className="px-3.5 py-1.5 rounded-full bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow-sm"
             >
-              {lang === 'bn' ? 'লগইন' : 'Login'}
+              {lang === 'bn' ? 'লগইন' : 'Sign In'}
             </button>
           )}
         </div>

@@ -1,0 +1,82 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.token.admin == true ||
+        request.auth.token.email == 'rifatkhanlol24@gmail.com' ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
+      );
+    }
+
+    function isModerator() {
+      return isAdmin() || (
+        isSignedIn() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'moderator'
+      );
+    }
+
+    // Users Collection
+    match /users/{userId} {
+      allow read: if true;
+      allow create: if isSignedIn() || request.auth.uid == userId;
+      allow update: if isOwner(userId) || isAdmin() || isModerator();
+      allow delete: if isAdmin();
+    }
+
+    // Posts Collection
+    match /posts/{postId} {
+      allow read: if true;
+      allow create: if isSignedIn();
+      allow update: if isSignedIn();
+      allow delete: if isSignedIn() && (
+        resource.data.authorId == request.auth.uid ||
+        isAdmin() ||
+        isModerator()
+      );
+    }
+
+    // Messages Collection
+    match /messages/{messageId} {
+      allow read: if isSignedIn() && (
+        resource.data.senderId == request.auth.uid ||
+        resource.data.receiverId == request.auth.uid ||
+        isAdmin()
+      );
+      allow create: if isSignedIn();
+      allow update, delete: if isSignedIn() && (
+        resource.data.senderId == request.auth.uid ||
+        isAdmin()
+      );
+    }
+
+    // Notifications Collection
+    match /notifications/{notifId} {
+      allow read: if isSignedIn() && (
+        resource.data.userId == request.auth.uid ||
+        isAdmin()
+      );
+      allow create: if isSignedIn();
+      allow update, delete: if isSignedIn() && (
+        resource.data.userId == request.auth.uid ||
+        isAdmin()
+      );
+    }
+
+    // Default fallback
+    match /{document=**} {
+      allow read, write: if isAdmin();
+    }
+  }
+}

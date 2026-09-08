@@ -7,6 +7,8 @@ import {
   ShieldCheck,
   Globe,
   BellRing,
+  Flame,
+  ExternalLink,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { TRENDING_TAGS } from '../data/mockData';
@@ -30,20 +32,24 @@ export const RightSidebar: React.FC = () => {
 
   return (
     <aside className="hidden lg:flex flex-col w-80 shrink-0 h-[calc(100vh-4rem)] sticky top-16 p-4 space-y-4 overflow-y-auto">
-      {/* Platform Health & Fast Server Badge */}
-      <div className="p-3.5 rounded-2xl bg-gradient-to-br from-indigo-50 to-blue-50 dark:from-indigo-950/40 dark:to-neutral-900 border border-indigo-100 dark:border-indigo-900/60 shadow-xs space-y-2">
+      {/* Firebase Cloud Status Card */}
+      <div className="p-3.5 rounded-2xl bg-gradient-to-br from-amber-500/10 via-rose-500/5 to-indigo-500/10 dark:from-amber-950/30 dark:to-neutral-900 border border-amber-300/40 dark:border-amber-800/40 shadow-xs space-y-2">
         <div className="flex items-center justify-between">
-          <span className="text-[11px] font-bold text-indigo-700 dark:text-indigo-300 flex items-center gap-1.5">
-            <Zap className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
-            {lang === 'bn' ? 'হাই-স্পিড সার্ভার সক্রিয়' : 'High-Speed Edge Active'}
+          <span className="text-[11px] font-black text-amber-700 dark:text-amber-400 flex items-center gap-1.5">
+            <Flame className="w-3.5 h-3.5 fill-current" />
+            <span>Firebase Connected</span>
           </span>
-          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
         </div>
-        <p className="text-[11px] text-neutral-600 dark:text-neutral-400 leading-relaxed">
-          {lang === 'bn'
-            ? 'রিয়েল-টাইম স্টেট ও ইমেজ প্রসেসিং সহ দ্রুত গতি সম্পন্ন আর্কিটেকচার।'
-            : 'Fast response times with instant state sync & Vercel edge deployment ready.'}
+        <p className="text-[11px] text-neutral-600 dark:text-neutral-400 leading-relaxed font-mono">
+          social-media1bd • Firestore DB
         </p>
+        <button
+          onClick={() => setActiveTab('admin')}
+          className="w-full text-left text-xs font-bold text-amber-600 dark:text-amber-400 hover:underline flex items-center justify-between pt-1 border-t border-amber-200/50 dark:border-amber-800/50"
+        >
+          <span>{lang === 'bn' ? 'এডমিন কনসোল খুলুন →' : 'Open Admin Console →'}</span>
+        </button>
       </div>
 
       {/* Suggested Creators */}
@@ -159,10 +165,10 @@ export const RightSidebar: React.FC = () => {
         </div>
       )}
 
-      {/* Footer credits & Vercel info */}
+      {/* Footer credits */}
       <div className="px-2 text-[11px] text-neutral-400 space-y-1">
-        <p>© 2026 VibeConnect • Built for Speed</p>
-        <p>Vercel &amp; GitHub Ready • React 19 • Tailwind CSS</p>
+        <p>© 2026 1 social • Firebase Integrated</p>
+        <p>Google Cloud Firestore • React 19 • Tailwind CSS</p>
       </div>
     </aside>
   );
