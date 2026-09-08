@@ -33,6 +33,8 @@ interface AppContextType {
   // Current user & Auth
   currentUser: User | null;
   users: User[];
+  loggedInUserIds: string[];
+  recordLoggedInUser: (uid: string) => void;
   login: (emailOrUsername: string, password?: string) => boolean;
   register: (email: string, username: string, fullName: string, password?: string) => boolean;
   logout: () => void;
@@ -148,31 +150,74 @@ function playChime() {
   }
 }
 
+// Safe LocalStorage setter preventing QuotaExceededError or crashes
+function safeLocalStorageSet(key: string, value: string) {
+  try {
+    localStorage.setItem(key, value);
+  } catch (err) {
+    console.warn(`[LocalStorage] Failed to save key "${key}":`, err);
+  }
+}
+
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   // Persistence Helpers
   const [users, setUsers] = useState<User[]>(() => {
-    const saved = localStorage.getItem('vc_users');
-    let list: User[] = saved ? JSON.parse(saved) : INITIAL_USERS;
-    // Guarantee that default admin soheltajbhola@gmail.com is present with role 'admin'
-    const adminIndex = list.findIndex(
-      (u) => u.id === 'user-admin' || u.email === 'soheltajbhola@gmail.com' || u.email === 'rifatkhanlol24@gmail.com'
-    );
-    if (adminIndex !== -1) {
-      list[adminIndex] = {
-        ...list[adminIndex],
-        id: 'user-admin',
-        email: 'soheltajbhola@gmail.com',
-        fullName: 'Sohel Taj (Admin)',
-        username: list[adminIndex].username === 'rifat_admin' ? 'sohel_admin' : list[adminIndex].username,
-        role: 'admin',
-        isVerified: true,
-        isVip: true,
-      };
-    } else {
-      list = [INITIAL_USERS[0], ...list];
+    try {
+      const saved = localStorage.getItem('vc_users');
+      let list: User[] = saved ? JSON.parse(saved) : INITIAL_USERS;
+      // Purge any stale fake bot / AI Booster accounts that were previously saved in user's browser localStorage
+      list = list.filter(
+        (u) =>
+          !u.isBot &&
+          !u.fullName?.includes('AI Booster') &&
+          !u.username?.startsWith('bot_')
+      );
+      // Guarantee that default admin soheltajbhola@gmail.com is present with role 'admin'
+      const adminIndex = list.findIndex(
+        (u) =>
+          u.id === 'user-admin' ||
+          u.email === 'soheltajbhola@gmail.com' ||
+          u.email === 'rifatkhanlol24@gmail.com'
+      );
+      if (adminIndex !== -1) {
+        list[adminIndex] = {
+          ...list[adminIndex],
+          id: 'user-admin',
+          email: 'soheltajbhola@gmail.com',
+          fullName: 'Sohel Taj (Admin)',
+          username: list[adminIndex].username === 'rifat_admin' ? 'sohel_admin' : list[adminIndex].username,
+          role: 'admin',
+          isVerified: true,
+          isVip: true,
+        };
+      } else {
+        list = [INITIAL_USERS[0], ...list];
+      }
+      return list;
+    } catch {
+      return INITIAL_USERS;
     }
-    return list;
   });
+
+  // Track accounts that have actually been logged into on this device/session
+  const [loggedInUserIds, setLoggedInUserIds] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('vc_logged_in_users');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return ['user-admin'];
+  });
+
+  const recordLoggedInUser = (uid: string) => {
+    setLoggedInUserIds((prev) => {
+      const next = Array.from(new Set([...prev, uid]));
+      safeLocalStorageSet('vc_logged_in_users', JSON.stringify(next));
+      return next;
+    });
+  };
 
   const [currentUserId, setCurrentUserId] = useState<string | null>(() => {
     const saved = localStorage.getItem('vc_current_user_id');
@@ -277,45 +322,47 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }, 3500);
   };
 
-  // Sync to LocalStorage
+  // Sync to LocalStorage safely
   useEffect(() => {
-    localStorage.setItem('vc_users', JSON.stringify(users));
+    safeLocalStorageSet('vc_users', JSON.stringify(users));
   }, [users]);
 
   useEffect(() => {
     if (currentUserId) {
-      localStorage.setItem('vc_current_user_id', currentUserId);
+      safeLocalStorageSet('vc_current_user_id', currentUserId);
     } else {
-      localStorage.removeItem('vc_current_user_id');
+      try {
+        localStorage.removeItem('vc_current_user_id');
+      } catch {}
     }
   }, [currentUserId]);
 
   useEffect(() => {
-    localStorage.setItem('vc_posts', JSON.stringify(posts));
+    safeLocalStorageSet('vc_posts', JSON.stringify(posts));
   }, [posts]);
 
   useEffect(() => {
-    localStorage.setItem('vc_conversations', JSON.stringify(conversations));
+    safeLocalStorageSet('vc_conversations', JSON.stringify(conversations));
   }, [conversations]);
 
   useEffect(() => {
-    localStorage.setItem('vc_messages', JSON.stringify(messages));
+    safeLocalStorageSet('vc_messages', JSON.stringify(messages));
   }, [messages]);
 
   useEffect(() => {
-    localStorage.setItem('vc_notifications', JSON.stringify(notifications));
+    safeLocalStorageSet('vc_notifications', JSON.stringify(notifications));
   }, [notifications]);
 
   useEffect(() => {
-    localStorage.setItem('vc_verification_reqs', JSON.stringify(verificationRequests));
+    safeLocalStorageSet('vc_verification_reqs', JSON.stringify(verificationRequests));
   }, [verificationRequests]);
 
   useEffect(() => {
-    localStorage.setItem('vc_bot_sent', String(botPoolSent));
+    safeLocalStorageSet('vc_bot_sent', String(botPoolSent));
   }, [botPoolSent]);
 
   useEffect(() => {
-    localStorage.setItem('vc_dark_mode', String(darkMode));
+    safeLocalStorageSet('vc_dark_mode', String(darkMode));
     if (darkMode) {
       document.documentElement.classList.add('dark');
     } else {
@@ -324,7 +371,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   }, [darkMode]);
 
   useEffect(() => {
-    localStorage.setItem('vc_lang', lang);
+    safeLocalStorageSet('vc_lang', lang);
   }, [lang]);
 
   // Handle URL query parameter ?u=username to view shared user profile directly
@@ -382,6 +429,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         return false;
       }
       setCurrentUserId(found.id);
+      recordLoggedInUser(found.id);
       showToast(lang === 'bn' ? `স্বাগতম, ${found.fullName}!` : `Welcome back, ${found.fullName}!`);
       setIsAuthModalOpen(false);
       return true;
@@ -397,7 +445,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       username: newUsername,
       usernameChangeCount: 0,
       fullName: newUsername.replace(/_/g, ' ').toUpperCase(),
-      avatar: `https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=400&auto=format&fit=crop&q=80`,
+      avatar: `https://images.unsplash.com/photo-${1535713875002 + Math.floor(Math.random() * 100)}?w=400&auto=format&fit=crop&q=80`,
       coverImage: 'https://images.unsplash.com/photo-1579546929518-9e396f3cc809?w=1200&auto=format&fit=crop&q=80',
       bio: 'New explorer on the platform! Hello world ✨',
       role: 'user',
@@ -409,6 +457,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     };
     setUsers((prev) => [newUser, ...prev]);
     setCurrentUserId(newUser.id);
+    recordLoggedInUser(newUser.id);
     showToast(lang === 'bn' ? 'অ্যাকাউন্ট সফলভাবে তৈরি হয়েছে!' : 'Account created successfully!');
     setIsAuthModalOpen(false);
     return true;
@@ -431,7 +480,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       username: username.toLowerCase().replace(/[^a-zA-Z0-9_]/g, ''),
       usernameChangeCount: 0,
       fullName: fullName.trim(),
-      avatar: `https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=400&auto=format&fit=crop&q=80`,
+      avatar: `https://images.unsplash.com/photo-${1535713875002 + Math.floor(Math.random() * 100)}?w=400&auto=format&fit=crop&q=80`,
       coverImage: 'https://images.unsplash.com/photo-1579546929518-9e396f3cc809?w=1200&auto=format&fit=crop&q=80',
       bio: 'Excited to connect and share moments here! 🌟',
       role: 'user',
@@ -443,6 +492,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     };
     setUsers((prev) => [newUser, ...prev]);
     setCurrentUserId(newUser.id);
+    recordLoggedInUser(newUser.id);
     showToast(lang === 'bn' ? `স্বাগতম ${fullName}! অ্যাকাউন্ট তৈরি সম্পন্ন।` : `Welcome ${fullName}! Account created.`);
     setIsAuthModalOpen(false);
     return true;
@@ -460,6 +510,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const target = users.find((u) => u.id === userId);
     if (target) {
       setCurrentUserId(target.id);
+      recordLoggedInUser(target.id);
       showToast(lang === 'bn' ? `ইউজার পরিবর্তন: ${target.fullName}` : `Switched user to: ${target.fullName}`);
     }
   };
@@ -1179,7 +1230,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     showToast(lang === 'bn' ? 'ইউজারের সমস্ত তথ্য সফলভাবে অ্যাডমিন কর্তৃক পরিবর্তিত হয়েছে!' : 'User details successfully updated by Admin!');
   };
 
-  // 1 Million Community Users Engine: Send followers with USER-0000000001 up to USER-1000000000 format and default blogspot link
+  // 1 Million Community Users Engine: High-performance, crash-free delivery with USER-0000000001 up to USER-1000000000 series
   const adminSendBotFollowers = (
     targetUsername: string,
     count: number
@@ -1194,7 +1245,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       };
     }
 
-    const safeCount = Math.min(Math.max(1, count), 100000);
+    const safeCount = Math.min(Math.max(1, count), 1000000);
     const newCommunityUsers: User[] = [];
     const newFollowerIds: string[] = [];
 
@@ -1225,8 +1276,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       'Content creator & lifestyle blogger ✨ Proud to be on 1 social.',
     ];
 
+    // Generate up to 20 representative sample accounts to avoid memory bloat and keep UI instant
+    const sampleCount = Math.min(safeCount, 20);
     const baseUserIndex = botPoolSent;
-    for (let i = 0; i < Math.min(safeCount, 50); i++) {
+    for (let i = 0; i < sampleCount; i++) {
       const userNum = ((baseUserIndex + i) % 1000000000) + 1;
       const paddedNumber = String(userNum).padStart(10, '0');
       const formattedUsername = `USER-${paddedNumber}`;
@@ -1253,24 +1306,26 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       newFollowerIds.push(generatedUserId);
     }
 
-    // For any remaining up to safeCount, generate IDs with the exact USER-0000000001 format
-    for (let i = newFollowerIds.length; i < safeCount; i++) {
-      const userNum = ((baseUserIndex + i) % 1000000000) + 1;
-      const paddedNumber = String(userNum).padStart(10, '0');
-      newFollowerIds.push(`user-${paddedNumber}`);
-    }
+    const currentTotal = targetUser.followerCount ?? targetUser.followers.length;
+    const newTotal = currentTotal + safeCount;
 
     setUsers((prev) => {
       const updated = prev.map((u) => {
         if (u.id === targetUser.id) {
+          // Keep a bounded sample of follower IDs (up to 50) for fast avatar rendering
+          const combined = Array.from(new Set([...u.followers, ...newFollowerIds])).slice(-50);
           return {
             ...u,
-            followers: [...new Set([...u.followers, ...newFollowerIds])],
+            followerCount: newTotal,
+            followers: combined,
           };
         }
         return u;
       });
-      return [...updated, ...newCommunityUsers];
+      // Append sample users without exceeding sensible array lengths
+      const existingIds = new Set(updated.map((u) => u.id));
+      const freshUsers = newCommunityUsers.filter((u) => !existingIds.has(u.id));
+      return [...updated, ...freshUsers];
     });
 
     setBotPoolSent((prev) => prev + safeCount);
@@ -1298,7 +1353,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     };
   };
 
-  // Admin Auto Likes with Post URL or ID
+  // Admin Auto Likes with Post URL or ID (High-performance, crash-free)
   const adminSendAutoLikes = (
     postIdentifier: string,
     count: number
@@ -1323,16 +1378,19 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       };
     }
 
-    const safeCount = Math.min(Math.max(1, count), 25000);
-    const userLikes: string[] = [];
-    for (let i = 0; i < safeCount; i++) {
-      userLikes.push(`user-like-${Date.now()}-${i}`);
-    }
+    const safeCount = Math.min(Math.max(1, count), 100000);
+    const sampleLikes = Array.from({ length: Math.min(safeCount, 20) }, (_, i) => `user-like-${Date.now()}-${i}`);
+    const currentLikes = targetPost.likesCount ?? targetPost.likes.length;
+    const newTotalLikes = currentLikes + safeCount;
 
     setPosts((prev) =>
       prev.map((p) =>
         p.id === targetPost.id
-          ? { ...p, likes: [...new Set([...p.likes, ...userLikes])] }
+          ? {
+              ...p,
+              likesCount: newTotalLikes,
+              likes: Array.from(new Set([...p.likes, ...sampleLikes])).slice(-50),
+            }
           : p
       )
     );
@@ -1430,6 +1488,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       value={{
         currentUser,
         users,
+        loggedInUserIds,
+        recordLoggedInUser,
         login,
         register,
         logout,

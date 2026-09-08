@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Search,
   Bell,
@@ -13,6 +13,8 @@ import {
   Volume2,
   VolumeX,
   Flame,
+  UserPlus,
+  MessageCircle,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
@@ -20,6 +22,8 @@ export const Navbar: React.FC = () => {
   const {
     currentUser,
     users,
+    loggedInUserIds,
+    conversations,
     switchUser,
     activeTab,
     setActiveTab,
@@ -58,6 +62,31 @@ export const Navbar: React.FC = () => {
   const userNotifications = notifications.filter(
     (n) => n.userId === currentUser?.id
   );
+
+  // User request:
+  // "এখানে এত থাকা যাবে না লগইন অপশনে মাল্টিপল অ্যাকাউন্ট থাকবে তবে যে কয়টি অ্যাকাউন্ট লগইন করা হয়েছে এবং মেসেজে যাদের সাথে তথ্য আদান-প্রদান হয়েছে তাদেরকেই দেখা যাবে ।"
+  const switchableUsers = useMemo(() => {
+    // 1. Identify users with whom message exchange/conversation has taken place
+    const chatPartnerIds = new Set<string>();
+    conversations.forEach((conv) => {
+      if (conv.participantIds.includes(currentUser?.id || '')) {
+        conv.participantIds.forEach((pid) => {
+          if (pid !== currentUser?.id) {
+            chatPartnerIds.add(pid);
+          }
+        });
+      }
+    });
+
+    // 2. Filter users to only those logged in on this device, or chat partners, or current user
+    return users.filter((u) => {
+      if (u.isBot || u.fullName.includes('AI Booster')) return false;
+      const isCurrent = u.id === currentUser?.id;
+      const isLoggedIn = loggedInUserIds.includes(u.id);
+      const isChatPartner = chatPartnerIds.has(u.id);
+      return isCurrent || isLoggedIn || isChatPartner;
+    });
+  }, [users, loggedInUserIds, conversations, currentUser?.id]);
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-neutral-200 dark:border-neutral-800 bg-white/90 dark:bg-neutral-900/90 backdrop-blur-md transition-colors">
@@ -336,41 +365,86 @@ export const Navbar: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Switch Demo Accounts */}
+                  {/* Switch Logged-in & Interacted Accounts */}
                   <div className="px-2 py-1">
-                    <p className="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider mb-1 px-1">
-                      {lang === 'bn' ? 'ইউজার স্যুইচ করুন:' : 'Switch User:'}
-                    </p>
-                    <div className="space-y-1">
-                      {users.map((u) => (
-                        <button
-                          key={u.id}
-                          onClick={() => {
-                            switchUser(u.id);
-                            setIsUserMenuOpen(false);
-                          }}
-                          className={`w-full flex items-center justify-between px-2 py-1.5 rounded-lg text-xs transition-colors ${
-                            u.id === currentUser.id
-                              ? 'bg-indigo-50 dark:bg-indigo-950/60 font-medium text-indigo-600 dark:text-indigo-300'
-                              : 'hover:bg-neutral-100 dark:hover:bg-neutral-700/50 text-neutral-700 dark:text-neutral-300'
-                          }`}
-                        >
-                          <div className="flex items-center gap-2 truncate">
-                            <img
-                              src={u.avatar}
-                              alt={u.fullName}
-                              className="w-5 h-5 rounded-full object-cover"
-                            />
-                            <span className="truncate">{u.fullName}</span>
-                          </div>
-                          {u.role === 'admin' && (
-                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-purple-100 dark:bg-purple-950 text-purple-600 dark:text-purple-300 font-bold uppercase">
-                              Admin
-                            </span>
-                          )}
-                        </button>
-                      ))}
+                    <div className="flex items-center justify-between mb-1 px-1">
+                      <p className="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider">
+                        {lang === 'bn' ? 'অ্যাকাউন্ট স্যুইচ করুন:' : 'Switch Account:'}
+                      </p>
+                      <span className="text-[10px] text-neutral-400 font-medium">
+                        {switchableUsers.length}
+                      </span>
                     </div>
+
+                    <div className="space-y-1 max-h-52 overflow-y-auto">
+                      {switchableUsers.map((u) => {
+                        const isCurrent = u.id === currentUser.id;
+                        const isLoggedIn = loggedInUserIds.includes(u.id);
+                        return (
+                          <button
+                            key={u.id}
+                            onClick={() => {
+                              switchUser(u.id);
+                              setIsUserMenuOpen(false);
+                            }}
+                            className={`w-full flex items-center justify-between px-2 py-1.5 rounded-xl text-xs transition-all ${
+                              isCurrent
+                                ? 'bg-indigo-50 dark:bg-indigo-950/60 font-semibold text-indigo-600 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/60'
+                                : 'hover:bg-neutral-100 dark:hover:bg-neutral-700/50 text-neutral-700 dark:text-neutral-300'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2 truncate">
+                              <img
+                                src={u.avatar}
+                                alt={u.fullName}
+                                className="w-6 h-6 rounded-full object-cover shrink-0 border border-neutral-200 dark:border-neutral-700"
+                              />
+                              <div className="text-left truncate">
+                                <p className="truncate font-medium text-xs leading-tight">
+                                  {u.fullName}
+                                </p>
+                                <p className="text-[10px] text-neutral-400 truncate">
+                                  @{u.username}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-1 shrink-0 ml-1">
+                              {u.role === 'admin' && (
+                                <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-purple-100 dark:bg-purple-950 text-purple-600 dark:text-purple-300 font-bold uppercase">
+                                  Admin
+                                </span>
+                              )}
+                              {isCurrent ? (
+                                <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 font-semibold">
+                                  {lang === 'bn' ? 'সক্রিয়' : 'Active'}
+                                </span>
+                              ) : isLoggedIn ? (
+                                <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-neutral-100 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-300 font-medium">
+                                  {lang === 'bn' ? 'লগইনকৃত' : 'Logged in'}
+                                </span>
+                              ) : (
+                                <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-sky-100 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400 font-medium flex items-center gap-0.5">
+                                  <MessageCircle className="w-2.5 h-2.5" />
+                                  {lang === 'bn' ? 'মেসেজ' : 'Chat'}
+                                </span>
+                              )}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {/* Add / Login another account button */}
+                    <button
+                      onClick={() => {
+                        setIsAuthModalOpen(true);
+                        setIsUserMenuOpen(false);
+                      }}
+                      className="w-full mt-2 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-xl border border-dashed border-neutral-300 dark:border-neutral-700 hover:border-indigo-500 hover:bg-indigo-50/50 dark:hover:bg-indigo-950/30 text-indigo-600 dark:text-indigo-400 text-xs font-semibold transition-all"
+                    >
+                      <UserPlus className="w-3.5 h-3.5" />
+                      <span>{lang === 'bn' ? '+ অন্য অ্যাকাউন্টে লগইন' : '+ Add / Login Another'}</span>
+                    </button>
                   </div>
 
                   {/* Links */}

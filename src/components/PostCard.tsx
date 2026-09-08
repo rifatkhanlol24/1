@@ -359,7 +359,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post }) => {
                 isLiked ? 'fill-rose-500 text-rose-500' : ''
               }`}
             />
-            <span>{post.likes.length}</span>
+            <span>{(post.likesCount ?? post.likes.length).toLocaleString()}</span>
           </button>
 
           {/* Comment Button */}

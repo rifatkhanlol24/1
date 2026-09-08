@@ -88,14 +88,15 @@ export const ProfileView: React.FC = () => {
   const savedPosts = posts.filter((p) => p.savedBy.includes(profileUser.id));
 
   // Calculate total likes received on this user's posts
-  const totalLikesReceived = userPosts.reduce((acc, p) => acc + p.likes.length, 0);
+  const totalLikesReceived = userPosts.reduce((acc, p) => acc + (p.likesCount ?? p.likes.length), 0);
 
   // Users who liked this user's posts
-  const likerUserIds = Array.from(new Set(userPosts.flatMap((p) => p.likes)));
+  const likerUserIds = Array.from(new Set(userPosts.flatMap((p) => p.likes))).slice(0, 50);
   const likerUsers = users.filter((u) => likerUserIds.includes(u.id));
 
-  // Followers & Following users objects
-  const followerUsers = users.filter((u) => profileUser.followers.includes(u.id));
+  // Followers & Following users objects (fast lookup)
+  const followerUserIds = new Set(profileUser.followers);
+  const followerUsers = users.filter((u) => followerUserIds.has(u.id)).slice(0, 50);
   const followingUsers = users.filter((u) => profileUser.following.includes(u.id));
 
   // Pending verification request for this user
@@ -462,7 +463,7 @@ export const ProfileView: React.FC = () => {
                 className="flex flex-col items-center justify-center p-3 rounded-2xl bg-neutral-50 dark:bg-neutral-800/50 hover:bg-indigo-50 dark:hover:bg-indigo-950/20 hover:border-indigo-200 transition-all text-center border border-neutral-100 dark:border-neutral-800/80 group"
               >
                 <span className="text-lg sm:text-xl font-black text-indigo-600 dark:text-indigo-400 group-hover:scale-105 transition-transform">
-                  {profileUser.followers.length}
+                  {(profileUser.followerCount ?? profileUser.followers.length).toLocaleString()}
                 </span>
                 <span className="text-xs font-medium text-neutral-500 dark:text-neutral-400">
                   {lang === 'bn' ? 'Followers (ফলোয়ার)' : 'Followers'}
@@ -566,7 +567,11 @@ export const ProfileView: React.FC = () => {
                 {activeListModal === 'followers' && (
                   <>
                     <UserCheck className="w-4 h-4 text-indigo-500" />
-                    <span>{lang === 'bn' ? `ফলোয়ার তালিকা (${profileUser.followers.length})` : `Followers (${profileUser.followers.length})`}</span>
+                    <span>
+                      {lang === 'bn'
+                        ? `ফলোয়ার তালিকা (${(profileUser.followerCount ?? profileUser.followers.length).toLocaleString()})`
+                        : `Followers (${(profileUser.followerCount ?? profileUser.followers.length).toLocaleString()})`}
+                    </span>
                   </>
                 )}
                 {activeListModal === 'following' && (

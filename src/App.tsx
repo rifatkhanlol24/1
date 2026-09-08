@@ -16,6 +16,7 @@ import { AuthGateScreen } from './components/AuthGateScreen';
 import { ShareModal } from './components/ShareModal';
 import { VercelModal } from './components/VercelModal';
 import { Toast } from './components/Toast';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 const MainLayout: React.FC = () => {
   const { activeTab, currentUser } = useApp();
@@ -73,8 +74,10 @@ const MainLayout: React.FC = () => {
 
 export default function App() {
   return (
-    <AppProvider>
-      <MainLayout />
-    </AppProvider>
+    <ErrorBoundary>
+      <AppProvider>
+        <MainLayout />
+      </AppProvider>
+    </ErrorBoundary>
   );
 }

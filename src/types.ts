@@ -26,6 +26,7 @@ export interface User {
   badge?: 'VIP' | 'Verified' | 'None';
   isBanned: boolean;
   isBot?: boolean;
+  followerCount?: number;
   followers: string[]; // user IDs
   following: string[]; // user IDs
   createdAt: string;
@@ -73,6 +74,7 @@ export interface Post {
   createdAt: string;
   updatedAt?: string;
   likes: string[]; // user IDs
+  likesCount?: number;
   savedBy: string[]; // user IDs
   comments: PostComment[];
   sharesCount: number;

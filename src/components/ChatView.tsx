@@ -78,12 +78,18 @@ export const ChatView: React.FC = () => {
     }
   };
 
-  // Contacts list including users you haven't messaged yet
+  // Contacts list: exclude bots, AI boosters, and bulk generated users from contacts list
   const filteredUsers = users.filter(
     (u) =>
       u.id !== currentUser?.id &&
-      (u.fullName.toLowerCase().includes(chatSearch.toLowerCase()) ||
-        u.username.toLowerCase().includes(chatSearch.toLowerCase()))
+      !u.isBot &&
+      !u.fullName.includes('AI Booster') &&
+      !u.username.startsWith('USER-') &&
+      !u.username.startsWith('bot_') &&
+      (chatSearch.trim()
+        ? u.fullName.toLowerCase().includes(chatSearch.toLowerCase()) ||
+          u.username.toLowerCase().includes(chatSearch.toLowerCase())
+        : currentUser?.following.includes(u.id) || ['user-1', 'user-2', 'user-3', 'user-4', 'user-5'].includes(u.id))
   );
 
   return (

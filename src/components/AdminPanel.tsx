@@ -801,7 +801,7 @@ export const AdminPanel: React.FC = () => {
                           </p>
                           <div className="flex items-center gap-2 mt-1 text-[10px] text-neutral-500 dark:text-neutral-400">
                             <span>
-                              Followers: <strong>{previewedBotUser.followers.length.toLocaleString()}</strong>
+                              Followers: <strong>{(previewedBotUser.followerCount ?? previewedBotUser.followers.length).toLocaleString()}</strong>
                             </span>
                             <span>•</span>
                             <span>
@@ -952,7 +952,7 @@ export const AdminPanel: React.FC = () => {
                         </p>
                         <div className="flex items-center gap-3 text-[10px] text-neutral-500 dark:text-neutral-400 pt-1 border-t border-rose-100 dark:border-rose-900/50">
                           <span className="text-rose-600 dark:text-rose-400 font-bold">
-                            ❤️ {previewedLikePost.likes.length.toLocaleString()} Likes
+                            ❤️ {(previewedLikePost.likesCount ?? previewedLikePost.likes.length).toLocaleString()} Likes
                           </span>
                           <span>💬 {previewedLikePost.comments.length} Comments</span>
                         </div>
