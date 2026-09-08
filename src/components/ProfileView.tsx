@@ -394,15 +394,6 @@ export const ProfileView: React.FC = () => {
 
               <p className="text-xs text-neutral-500 dark:text-neutral-400 font-medium mt-1">
                 @{profileUser.username} • {profileUser.role.toUpperCase()}
-                {isMe && (
-                  <span className="ml-2 text-neutral-400">
-                    ({lang === 'bn' ? 'ইউজারনেম পরিবর্তন: ' : 'Username changed: '}
-                    <span className="font-semibold text-indigo-600 dark:text-indigo-400">
-                      {profileUser.usernameChangeCount || 0}/10
-                    </span>{' '}
-                    {lang === 'bn' ? 'বার' : 'times'})
-                  </span>
-                )}
               </p>
             </div>
 
