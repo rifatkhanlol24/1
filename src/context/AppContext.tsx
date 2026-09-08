@@ -745,7 +745,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     let targetEmail = clean;
     if (!clean.includes('@')) {
-      if (cleanLower === 'shoheltaj') {
+      if (cleanLower === 'shoheltaj' || cleanLower === 'soheltaj') {
         targetEmail = 'soheltajbhola@gmail.com';
       } else {
         let foundUser = users.find((u) => u.username?.toLowerCase() === cleanLower.replace(/^@/, ''));
@@ -760,7 +760,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         if (foundUser && foundUser.email) {
           targetEmail = foundUser.email;
         } else {
-          targetEmail = `${cleanLower.replace(/[^a-z0-9_]/g, '')}@1social.com`;
+          targetEmail = `${cleanLower.replace(/[^a-z0-9_.]/g, '')}@1social.com`;
         }
       }
     }
@@ -801,16 +801,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       console.error('[Firebase Auth Error]', err.code, err.message);
 
       if (err.code === 'auth/invalid-credential' || err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password') {
-        // Attempt seamless registration if email format and valid password is provided
-        if (clean.includes('@') && password && password.length >= 6) {
+        // Attempt seamless registration if valid password is provided
+        if (password && password.length >= 6) {
           try {
-            const rawPrefix = clean.split('@')[0];
-            const autoUsername = rawPrefix.replace(/[^a-zA-Z0-9_]/g, '_').slice(0, 15) || `user_${Date.now().toString().slice(-4)}`;
-            const autoName = rawPrefix.replace(/[^a-zA-Z ]/g, ' ').trim() || 'Social Member';
-            const registered = await register(clean, autoUsername, autoName, password);
+            const rawPrefix = clean.includes('@') ? clean.split('@')[0] : clean.replace(/^@/, '');
+            const autoUsername = rawPrefix.replace(/[^a-zA-Z0-9_.]/g, '_').slice(0, 15) || `user_${Date.now().toString().slice(-4)}`;
+            const rawName = rawPrefix.replace(/[^a-zA-Z ]/g, ' ').trim();
+            const autoName = rawName ? rawName.charAt(0).toUpperCase() + rawName.slice(1) : 'Social Member';
+            const registered = await register(targetEmail, autoUsername, autoName, password);
             if (registered) return true;
-          } catch {
-            // fall back to error toast
+          } catch (regErr) {
+            console.warn('[Seamless Registration Fallback Failed]', regErr);
           }
         }
       }
@@ -819,8 +820,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       if (err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password' || err.code === 'auth/user-not-found') {
         errorMsg =
           lang === 'bn'
-            ? 'ভুল ইমেইল/ইউজারনেম বা পাসওয়ার্ড। নতুন অ্যাকাউন্ট খুলতে Register বাটনে ক্লিক করে তথ্য পূরণ করুন।'
-            : 'Incorrect credentials. Click Register to create a new account.';
+            ? 'ভুল ইমেইল/ইউজারনেম বা পাসওয়ার্ড। নতুন অ্যাকাউন্ট খুলতে Register ট্যাবে ক্লিক করে তথ্য পূরণ করুন।'
+            : 'Incorrect credentials. Click Register tab to create a new account.';
       } else if (err.code === 'auth/too-many-requests') {
         errorMsg =
           lang === 'bn'
