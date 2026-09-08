@@ -77,57 +77,44 @@ export const AuthGateScreen: React.FC = () => {
     }
   };
 
-  const handleRegister = (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmedFullName = fullName.trim();
-    const trimmedUsername = registerUsername.trim();
+    const cleanUsername = registerUsername.trim().replace(/^@/, '');
     const trimmedEmail = registerEmail.trim();
     const trimmedPassword = registerPassword.trim();
 
-    if (!trimmedFullName || !trimmedUsername || !trimmedEmail || !trimmedPassword) {
+    if (!trimmedFullName || !cleanUsername || !trimmedEmail || !trimmedPassword) {
       showToast(lang === 'bn' ? 'সবগুলো ফিল্ড পূরণ করা আবশ্যক।' : 'Please fill all fields.');
       return;
     }
 
-    // Name English-only validation (A-Z, a-z and spaces only - no numbers or special chars)
-    const englishNameRegex = /^[a-zA-Z ]+$/;
-    const hasBengaliChars = /[\u0980-\u09FF]/;
-
-    if (hasBengaliChars.test(trimmedFullName) || !englishNameRegex.test(trimmedFullName) || trimmedFullName.length < 2) {
-      showToast(
-        lang === 'bn'
-          ? 'নাম শুধুমাত্র ইংরেজি অক্ষর (A-Z, a-z) এবং স্পেস হতে পারবে (সংখ্যা, প্রতীক বা বাংলা গ্রহণযোগ্য নয়)।'
-          : 'Name must contain only English letters (A-Z, a-z) and spaces.'
-      );
+    if (trimmedFullName.length < 2) {
+      showToast(lang === 'bn' ? 'আপনার পুরো নাম লিখুন (কমপক্ষে ২ অক্ষর)।' : 'Please enter full name (at least 2 characters).');
       return;
     }
 
-    // Username English-only validation (A-Z, a-z, 0-9, _, ., -)
-    const englishUsernameRegex = /^[a-zA-Z0-9_.-]+$/;
-    if (hasBengaliChars.test(trimmedUsername) || !englishUsernameRegex.test(trimmedUsername)) {
-      showToast(
-        lang === 'bn'
-          ? 'ইউজারনেম শুধুমাত্র ইংরেজি অক্ষরে (a-z, 0-9, _, ., -) হতে হবে।'
-          : 'Username must contain English characters only (a-z, 0-9, _, ., -).'
-      );
+    if (cleanUsername.length < 2) {
+      showToast(lang === 'bn' ? 'ইউজারনেম কমপক্ষে ২ অক্ষরের হতে হবে।' : 'Username must be at least 2 characters.');
       return;
     }
 
-    if (trimmedUsername.length < 3) {
-      showToast(lang === 'bn' ? 'ইউজারনেম কমপক্ষে ৩ অক্ষরের হতে হবে।' : 'Username must be at least 3 characters.');
+    if (trimmedPassword.length < 6) {
+      showToast(lang === 'bn' ? 'পাসওয়ার্ড কমপক্ষে ৬ অক্ষরের হতে হবে।' : 'Password must be at least 6 characters.');
       return;
     }
 
     setIsLoading(true);
-    setTimeout(() => {
-      register(
+    try {
+      await register(
         trimmedEmail,
-        trimmedUsername,
+        cleanUsername,
         trimmedFullName,
         trimmedPassword
       );
+    } finally {
       setIsLoading(false);
-    }, 400);
+    }
   };
 
   const handleResetPassword = (e: React.FormEvent) => {

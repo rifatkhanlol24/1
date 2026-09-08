@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo, ReactNode } from 'react';
 import confetti from 'canvas-confetti';
 import {
   User,
@@ -568,7 +568,38 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   }, [users, posts]);
 
-  const currentUser = currentUserId ? users.find((u) => u.id === currentUserId) || null : null;
+  const currentUser = useMemo(() => {
+    if (!currentUserId) return null;
+    const found = users.find((u) => u.id === currentUserId);
+    if (found) return found;
+
+    // Fallback if Firebase Auth user exists but RTDB sync is pending
+    const fbUser = auth.currentUser;
+    if (fbUser && fbUser.uid === currentUserId) {
+      const isAdmin = currentUserId === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3';
+      return {
+        id: fbUser.uid,
+        email: fbUser.email || `${fbUser.uid}@1social.com`,
+        username: isAdmin ? 'shoheltaj' : `user_${fbUser.uid.slice(0, 6)}`,
+        usernameChangeCount: 0,
+        fullName: fbUser.displayName || (isAdmin ? 'Shohel Taj' : '1Social Member'),
+        fullNameBn: isAdmin ? 'সোহেল তাজ' : undefined,
+        fullNameEn: isAdmin ? 'Shohel Taj' : undefined,
+        avatar: fbUser.photoURL || 'https://images.unsplash.com/photo-1535713875002?w=400&auto=format&fit=crop&q=80',
+        coverImage: 'https://images.unsplash.com/photo-1579546929518-9e396f3cc809?w=1200&auto=format&fit=crop&q=80',
+        bio: 'Member of 1Social Community.',
+        role: isAdmin ? 'admin' : 'user',
+        isVerified: isAdmin,
+        isVip: isAdmin,
+        isBanned: false,
+        followers: [],
+        following: ['UI28ofvzB7cjNJvCG0DvYgbCu9J3'],
+        createdAt: new Date().toISOString(),
+      } as User;
+    }
+
+    return null;
+  }, [currentUserId, users]);
 
   // Toggle Theme
   const toggleDarkMode = () => {
@@ -640,34 +671,41 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const login = async (emailOrUsername: string, password?: string): Promise<boolean> => {
-    const clean = emailOrUsername.trim();
+    const clean = emailOrUsername.trim().replace(/^@/, '');
     const cleanLower = clean.toLowerCase();
 
     const isEmail = clean.includes('@');
-    const isDemoAccount =
+    
+    // Check if clean matches a username in users array and map to email if available
+    let targetEmail = isEmail ? clean : '';
+    if (!isEmail) {
+      const foundUser = users.find((u) => u.username.toLowerCase() === cleanLower);
+      if (foundUser && foundUser.email) {
+        targetEmail = foundUser.email;
+      }
+    }
+
+    const isDemoEmail =
       cleanLower === 'shohel@1social.com' ||
       cleanLower === 'sarah.lens@creative.io' ||
       cleanLower === 'rahim.voice@sound.org' ||
       cleanLower === 'nusrat.art@gallery.bd' ||
       cleanLower === 'tanvir.code@devzone.com' ||
-      cleanLower.endsWith('@1social.com') ||
-      !isEmail; // username login
+      cleanLower === 'user-admin';
 
     // 1. Production Login with Firebase Authentication
-    if (isEmail && !isDemoAccount && password) {
+    if (targetEmail && !isDemoEmail && password) {
       try {
-        const cred = await signInWithEmailAndPassword(auth, clean, password);
+        const cred = await signInWithEmailAndPassword(auth, targetEmail, password);
         const fbUser = cred.user;
         const uid = fbUser.uid;
 
-        // Authoritative Single Admin check: UID must strictly match UI28ofvzB7cjNJvCG0DvYgbCu9J3
         const isAdmin = uid === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3';
         setIsFirebaseAdmin(isAdmin);
 
-        // Load profile from Firestore users/{uid}
         const userProfile = await loadUserProfileFromFirebase(
           uid,
-          fbUser.email || clean,
+          fbUser.email || targetEmail,
           fbUser.displayName || undefined
         );
 
@@ -688,39 +726,29 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         setIsAuthModalOpen(false);
         return true;
       } catch (err: any) {
-        console.error('[Firebase Auth Error]', err.code, err.message);
+        console.error('[Firebase Auth Error]', err?.code, err?.message);
 
-        let errorMsg = err.message || (lang === 'bn' ? 'লগইন ব্যর্থ হয়েছে।' : 'Login failed.');
-        if (err.code === 'auth/invalid-credential') {
+        let errorMsg = err?.message || (lang === 'bn' ? 'লগইন ব্যর্থ হয়েছে।' : 'Login failed.');
+        if (err?.code === 'auth/invalid-credential' || err?.code === 'auth/wrong-password') {
           errorMsg =
             lang === 'bn'
-              ? 'ভুল ইমেইল বা পাসওয়ার্ড (auth/invalid-credential)।'
-              : 'Invalid email or password (auth/invalid-credential).';
-        } else if (err.code === 'auth/wrong-password') {
+              ? 'ভুল ইমেইল/ইউজারনেম অথবা পাসওয়ার্ড।'
+              : 'Invalid email/username or password.';
+        } else if (err?.code === 'auth/user-not-found') {
           errorMsg =
             lang === 'bn'
-              ? 'ভুল পাসওয়ার্ড (auth/wrong-password)।'
-              : 'Incorrect password (auth/wrong-password).';
-        } else if (err.code === 'auth/user-not-found') {
+              ? 'এই ইউজার দিয়ে কোনো অ্যাকাউন্ট পাওয়া যায়নি।'
+              : 'No account found with this user.';
+        } else if (err?.code === 'auth/too-many-requests') {
           errorMsg =
             lang === 'bn'
-              ? 'এই ইমেইলে কোনো অ্যাকাউন্ট পাওয়া যায়নি (auth/user-not-found)।'
-              : 'No account found with this email (auth/user-not-found).';
-        } else if (err.code === 'auth/too-many-requests') {
+              ? 'অতিরিক্ত চেষ্টার কারণে সাময়িকভাবে ব্লক করা হয়েছে। কিছুক্ষণ পর আবার চেষ্টা করুন।'
+              : 'Access temporarily blocked due to many failed attempts. Please try again later.';
+        } else if (err?.code === 'auth/invalid-email') {
           errorMsg =
             lang === 'bn'
-              ? 'অতিরিক্ত চেষ্টার কারণে সাময়িকভাবে ব্লক করা হয়েছে (auth/too-many-requests)। কিছুক্ষণ পর আবার চেষ্টা করুন।'
-              : 'Access temporarily blocked due to many failed attempts (auth/too-many-requests). Please try again later.';
-        } else if (err.code === 'auth/invalid-email') {
-          errorMsg =
-            lang === 'bn'
-              ? 'অবৈধ ইমেইল ফরম্যাট (auth/invalid-email)।'
-              : 'Invalid email format (auth/invalid-email).';
-        } else if (err.code === 'auth/user-disabled') {
-          errorMsg =
-            lang === 'bn'
-              ? 'এই অ্যাকাউন্টটি নিষ্ক্রিয় করা হয়েছে (auth/user-disabled)।'
-              : 'This user account has been disabled (auth/user-disabled).';
+              ? 'অবৈধ ইমেইল এড্রেস।'
+              : 'Invalid email address.';
         }
 
         showToast(errorMsg);
@@ -728,7 +756,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       }
     }
 
-    // 2. Demo / Mock Local Login (for demo testing and username preview)
+    // 2. Demo / Fallback Local Login
     const found = users.find(
       (u) => u.email.toLowerCase() === cleanLower || u.username.toLowerCase() === cleanLower
     );
@@ -750,42 +778,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       return true;
     }
 
-    // If an unknown email was provided without password
-    if (isEmail) {
-      showToast(
-        lang === 'bn'
-          ? 'এই অ্যাকাউন্টে লগইন করতে পাসওয়ার্ড দিন অথবা সাইন আপ করুন।'
-          : 'Please provide password to log in or register a new account.'
-      );
-      return false;
-    }
-
-    // Auto demo guest account for local quick username
-    const newUsername = cleanLower.replace(/[^a-zA-Z0-9_]/g, '_');
-    const newUser: User = {
-      id: `user-${Date.now()}`,
-      email: `${newUsername}@1social.com`,
-      password: password || 'password123',
-      username: newUsername,
-      usernameChangeCount: 0,
-      fullName: newUsername.replace(/_/g, ' ').toUpperCase(),
-      avatar: `https://images.unsplash.com/photo-1535713875002 + Math.floor(Math.random() * 100)}?w=400&auto=format&fit=crop&q=80`,
-      coverImage: 'https://images.unsplash.com/photo-1579546929518-9e396f3cc809?w=1200&auto=format&fit=crop&q=80',
-      bio: 'New explorer on the platform! Hello world ✨',
-      role: 'user',
-      isVerified: false,
-      isBanned: false,
-      followers: [],
-      following: ['user-admin'],
-      createdAt: new Date().toISOString(),
-    };
-    setUsers((prev) => [newUser, ...prev]);
-    setCurrentUserId(newUser.id);
-    safeLocalStorageSet('vc_current_user_id', newUser.id);
-    recordLoggedInUser(newUser.id);
-    showToast(lang === 'bn' ? 'অ্যাকাউন্ট সফলভাবে তৈরি হয়েছে!' : 'Account created successfully!');
-    setIsAuthModalOpen(false);
-    return true;
+    showToast(
+      lang === 'bn'
+        ? 'কোনো অ্যাকাউন্ট পাওয়া যায়নি। সঠিক তথ্য দিন অথবা রেজিস্ট্রেশন করুন।'
+        : 'Account not found. Please check credentials or register.'
+    );
+    return false;
   };
 
   const register = async (
