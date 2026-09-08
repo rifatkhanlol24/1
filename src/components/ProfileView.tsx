@@ -79,7 +79,8 @@ export const ProfileView: React.FC = () => {
 
   if (!profileUser) return null;
 
-  const isAdmin = currentUser?.role === 'admin';
+  const { isFirebaseAdmin } = useApp();
+  const isAdmin = isFirebaseAdmin;
   const isMe = currentUser?.id === profileUser.id;
   const canEdit = isMe || isAdmin;
   const isFollowing = currentUser ? currentUser.following.includes(profileUser.id) : false;

@@ -319,8 +319,7 @@ export const AdminPanel: React.FC = () => {
   const [editUserIsVip, setEditUserIsVip] = useState(false);
   const [editUserIsVerified, setEditUserIsVerified] = useState(false);
 
-  // Default admin soheltajbhola@gmail.com check
-  const isAdmin = currentUser?.role === 'admin' || currentUser?.email === 'soheltajbhola@gmail.com';
+
 
   // Metrics
   const totalUsers = users.length;
@@ -410,37 +409,7 @@ export const AdminPanel: React.FC = () => {
     setEditingUser(null);
   };
 
-  // Strict Access Guard: Only soheltajbhola@gmail.com or users with role === 'admin' can access
-  if (!isAdmin) {
-    return (
-      <div id="admin-access-denied-card" className="max-w-xl mx-auto my-12 p-8 rounded-3xl bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 shadow-2xl text-center space-y-4 animate-in fade-in duration-200">
-        <div className="w-16 h-16 rounded-2xl bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-900 flex items-center justify-center text-rose-600 dark:text-rose-400 mx-auto shadow-inner">
-          <ShieldAlert className="w-8 h-8" />
-        </div>
-        <h2 className="text-xl font-black text-neutral-900 dark:text-neutral-100 tracking-tight">
-          {lang === 'bn' ? 'অ্যাডমিন অ্যাক্সেস সংরক্ষিত' : 'Admin Access Denied'}
-        </h2>
-        <p className="text-xs sm:text-sm text-neutral-600 dark:text-neutral-400 leading-relaxed max-w-md mx-auto">
-          {lang === 'bn'
-            ? 'শুধুমাত্র প্ল্যাটফর্ম অ্যাডমিন অথবা অ্যাডমিন কর্তৃক অনুমতিপ্রাপ্ত ব্যবহারকারীগণই অ্যাডমিন প্যানেল অ্যাক্সেস করতে পারেন।'
-            : 'Only platform administrators or users granted the Admin role can access this panel.'}
-        </p>
-        <div className="p-3 rounded-2xl bg-neutral-50 dark:bg-neutral-800/60 border border-neutral-200 dark:border-neutral-700/60 text-xs text-neutral-500 max-w-sm mx-auto">
-          <p className="font-mono text-[11px]">
-            Current: {currentUser?.email || currentUser?.username} (Role: {currentUser?.role || 'user'})
-          </p>
-        </div>
-        <div className="pt-2">
-          <button
-            onClick={() => setActiveTab('feed')}
-            className="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-md shadow-indigo-500/20 transition-all hover:scale-105"
-          >
-            {lang === 'bn' ? 'হোম ফিডে ফিরে যান' : 'Return to Feed'}
-          </button>
-        </div>
-      </div>
-    );
-  }
+
 
   return (
     <div id="admin-panel-container" className="space-y-6 max-w-5xl mx-auto pb-12">
@@ -478,7 +447,7 @@ export const AdminPanel: React.FC = () => {
           </p>
           <div className="flex items-center gap-2">
             <span className="px-2 py-0.5 rounded-md font-black uppercase text-[10px] bg-amber-500 text-neutral-950 shadow-xs">
-              {currentUser?.email === 'soheltajbhola@gmail.com' ? 'Super Admin' : 'Admin'}
+              Admin
             </span>
             <span className="font-mono text-xs text-neutral-200">
               {currentUser?.email}
@@ -683,12 +652,12 @@ export const AdminPanel: React.FC = () => {
                       <select
                         value={u.role}
                         onChange={(e) => adminChangeRole(u.id, e.target.value as UserRole)}
-                        disabled={!isAdmin || u.email === 'soheltajbhola@gmail.com'}
+                        disabled={false}
                         className="text-[11px] font-semibold bg-neutral-100 dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 rounded-lg p-1 text-neutral-800 dark:text-neutral-200 disabled:opacity-50 disabled:cursor-not-allowed"
                         title={
-                          u.email === 'soheltajbhola@gmail.com'
+                          false
                             ? 'Default Super Admin (Locked)'
-                            : !isAdmin
+                            : false
                             ? 'Only Admin can change user roles'
                             : 'Change user role'
                         }

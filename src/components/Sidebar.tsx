@@ -26,9 +26,10 @@ export const Sidebar: React.FC = () => {
     setSelectedUserProfileId,
     logout,
     lang,
+    isFirebaseAdmin,
   } = useApp();
 
-  const isUserAdmin = currentUser?.email === 'soheltajbhola@gmail.com' || currentUser?.role === 'admin';
+  
 
   // Count unread messages for current user
   const unreadMessagesCount = messages.filter(
@@ -112,7 +113,7 @@ export const Sidebar: React.FC = () => {
           })}
 
           {/* Firebase & Admin Console button (Admin Only) */}
-          {isUserAdmin && (
+          {isFirebaseAdmin && (
             <button
               id="sidebar-nav-admin"
               onClick={() => setActiveTab('admin')}

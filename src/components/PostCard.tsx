@@ -51,7 +51,8 @@ export const PostCard: React.FC<PostCardProps> = ({ post }) => {
   const [editTagsString, setEditTagsString] = useState(post.tags.join(', '));
 
   const isAuthor = currentUser?.id === post.authorId;
-  const isAdmin = currentUser?.role === 'admin';
+  const { isFirebaseAdmin } = useApp();
+  const isAdmin = isFirebaseAdmin;
   const isLiked = currentUser ? post.likes.includes(currentUser.id) : false;
   const isSaved = currentUser ? post.savedBy.includes(currentUser.id) : false;
 

@@ -20,6 +20,9 @@ import {
   INITIAL_NOTIFICATIONS,
 } from '../data/mockData';
 import { generateUniqueBilingualUser, sanitizeUserToBilingual } from '../utils/userGenerator';
+import { getAuth, onAuthStateChanged } from 'firebase/auth';
+import { getFirestore, doc, getDoc } from 'firebase/firestore';
+import { app } from '../lib/firebase';
 
 export type NavigationTab =
   | 'feed'
@@ -33,6 +36,7 @@ export type NavigationTab =
 interface AppContextType {
   // Current user & Auth
   currentUser: User | null;
+  isFirebaseAdmin: boolean;
   users: User[];
   loggedInUserIds: string[];
   recordLoggedInUser: (uid: string) => void;
@@ -176,31 +180,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           !u.fullName?.includes('AI Booster') &&
           !u.username?.startsWith('bot_')
       );
-      // Guarantee that default admin soheltajbhola@gmail.com is present with role 'admin'
-      const adminIndex = list.findIndex(
-        (u) =>
-          u.id === 'user-admin' ||
-          u.email === 'soheltajbhola@gmail.com' ||
-          u.email === 'rifatkhanlol24@gmail.com' ||
-          u.username === 'sohel_admin' ||
-          u.username === 'shoheltaj'
-      );
-      if (adminIndex !== -1) {
-        list[adminIndex] = {
-          ...list[adminIndex],
-          id: 'user-admin',
-          email: 'soheltajbhola@gmail.com',
-          fullName: 'শোয়েল তাজ (Shohel Taj)',
-          fullNameBn: 'শোয়েল তাজ',
-          fullNameEn: 'Shohel Taj',
-          username: 'shoheltaj',
-          role: 'admin',
-          isVerified: true,
-          isVip: true,
-        };
-      } else {
-        list = [INITIAL_USERS[0], ...list];
-      }
+      // Remove hardcoded admin modifications
       // Upgrade and sanitize every user to unique bilingual Bengali & English names
       const sanitized = list.map(sanitizeUserToBilingual);
       // Strict deduplication by email and username so no duplicated user accounts exist
@@ -233,7 +213,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         if (Array.isArray(parsed) && parsed.length > 0) return parsed;
       }
     } catch {}
-    return ['user-admin'];
+    return [];
   });
 
   const recordLoggedInUser = (uid: string) => {
@@ -259,6 +239,30 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const saved = localStorage.getItem('vc_current_user_id');
     return saved || null;
   });
+
+  const [isFirebaseAdmin, setIsFirebaseAdmin] = useState<boolean>(false);
+
+  useEffect(() => {
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        try {
+          const adminDoc = await getDoc(doc(db, 'admins', user.uid));
+          if (adminDoc.exists() && adminDoc.data().role === 'admin') {
+            setIsFirebaseAdmin(true);
+          } else {
+            setIsFirebaseAdmin(false);
+          }
+        } catch {
+          setIsFirebaseAdmin(false);
+        }
+      } else {
+        setIsFirebaseAdmin(false);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
 
   const [posts, setPosts] = useState<Post[]>(() => {
     const saved = localStorage.getItem('vc_posts');
@@ -1235,16 +1239,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const adminChangeRole = (userId: string, role: UserRole) => {
-    // Only an admin (specifically currentUser.role === 'admin' or email === 'soheltajbhola@gmail.com') can assign roles
-    if (currentUser?.role !== 'admin' && currentUser?.email !== 'soheltajbhola@gmail.com') {
-      showToast(lang === 'bn' ? 'শুধুমাত্র অ্যাডমিনই কাউকে মডারেটর বা অ্যাডমিন রোল দিতে পারেন।' : 'Only Admin can assign Moderator or Admin roles.');
-      return;
-    }
+    // Role change is only permitted from the protected Admin Panel.
     const targetUser = users.find((u) => u.id === userId);
-    if (targetUser?.email === 'soheltajbhola@gmail.com' && role !== 'admin') {
-      showToast(lang === 'bn' ? 'প্রধান অ্যাডমিন (soheltajbhola@gmail.com) এর রোল পরিবর্তন করা যাবে না।' : 'Cannot demote the default primary admin.');
-      return;
-    }
     setUsers((prev) =>
       prev.map((u) => (u.id === userId ? { ...u, role } : u))
     );
@@ -1540,6 +1536,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     <AppContext.Provider
       value={{
         currentUser,
+        isFirebaseAdmin,
         users,
         loggedInUserIds,
         recordLoggedInUser,

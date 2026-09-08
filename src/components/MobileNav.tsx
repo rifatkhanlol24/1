@@ -10,13 +10,14 @@ export const MobileNav: React.FC = () => {
     currentUser,
     setSelectedUserProfileId,
     messages,
+    isFirebaseAdmin,
   } = useApp();
 
   const unreadMessagesCount = messages.filter(
     (m) => m.receiverId === currentUser?.id && !m.isRead
   ).length;
 
-  const isUserAdmin = currentUser?.email === 'soheltajbhola@gmail.com' || currentUser?.role === 'admin';
+  
 
   return (
     <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-neutral-900/95 backdrop-blur-md border-t border-neutral-200 dark:border-neutral-800 px-2 py-1.5 flex items-center justify-around">
@@ -75,7 +76,7 @@ export const MobileNav: React.FC = () => {
       </button>
 
       {/* Firebase & Admin Quick Access on mobile (Admin Only) */}
-      {isUserAdmin && (
+      {isFirebaseAdmin && (
         <button
           id="mobile-nav-admin"
           onClick={() => setActiveTab('admin')}

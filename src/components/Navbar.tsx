@@ -49,9 +49,8 @@ export const Navbar: React.FC = () => {
     setSoundEnabled,
     setSelectedUserProfileId,
     logout,
+    isFirebaseAdmin,
   } = useApp();
-
-  const isUserAdmin = currentUser?.email === 'soheltajbhola@gmail.com' || currentUser?.role === 'admin';
 
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
@@ -188,7 +187,7 @@ export const Navbar: React.FC = () => {
           </button>
 
           {/* Firebase Console Quick Nav (Admin Only) */}
-          {isUserAdmin && (
+          {isFirebaseAdmin && (
             <button
               onClick={() => setActiveTab('admin')}
               className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl transition-all ${
@@ -476,7 +475,7 @@ export const Navbar: React.FC = () => {
                     >
                       {lang === 'bn' ? 'আমার প্রোফাইল' : 'View Profile'}
                     </button>
-                    {isUserAdmin && (
+                    {isFirebaseAdmin && (
                       <button
                         onClick={() => {
                           setActiveTab('admin');
