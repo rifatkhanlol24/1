@@ -60,15 +60,12 @@ export const AdminPanel: React.FC = () => {
     restorePost,
     deletePost,
     setActiveTab,
+    setIsAuthModalOpen,
     lang,
     showToast,
   } = useApp();
 
   const [isAdminVerified, setIsAdminVerified] = useState<boolean | null>(null);
-  const [authEmail, setAuthEmail] = useState('');
-  const [authPassword, setAuthPassword] = useState('');
-  const [authError, setAuthError] = useState('');
-  const [isAuthenticating, setIsAuthenticating] = useState(false);
 
   useEffect(() => {
     const auth = getAuth(app);
@@ -85,21 +82,6 @@ export const AdminPanel: React.FC = () => {
     return () => unsubscribe();
   }, []);
 
-  const handleAdminLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsAuthenticating(true);
-    setAuthError('');
-    try {
-      const auth = getAuth(app);
-      await signInWithEmailAndPassword(auth, authEmail, authPassword);
-      // onAuthStateChanged will handle the rest
-    } catch (err: any) {
-      console.error(err);
-      setAuthError(err.message || 'Authentication failed');
-      setIsAuthenticating(false);
-    }
-  };
-
   const handleAdminLogout = async () => {
     try {
       const auth = getAuth(app);
@@ -114,7 +96,11 @@ export const AdminPanel: React.FC = () => {
     return (
       <div className="flex flex-col items-center justify-center min-h-[50vh] space-y-4">
         <div className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" />
-        <p className="text-sm font-semibold text-neutral-500">Verifying Admin Access via Firebase...</p>
+        <p className="text-sm font-semibold text-neutral-500">
+          {lang === 'bn'
+            ? 'ফায়ারবেস অথেন্টিকেশন দিয়ে অ্যাডমিন যাচাই করা হচ্ছে...'
+            : 'Verifying Admin Access via Firebase Auth...'}
+        </p>
       </div>
     );
   }
@@ -122,69 +108,35 @@ export const AdminPanel: React.FC = () => {
   if (isAdminVerified === false) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[50vh] p-4">
-        <div className="w-full max-w-md p-6 bg-white dark:bg-neutral-900 border border-red-200 dark:border-red-900/50 rounded-3xl shadow-xl space-y-6">
-          <div className="flex flex-col items-center text-center space-y-2">
-            <div className="w-16 h-16 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mb-2">
-              <Lock className="w-8 h-8 text-red-600 dark:text-red-400" />
-            </div>
-            <h2 className="text-xl font-bold text-neutral-900 dark:text-neutral-100">Secure Admin Login</h2>
-            <p className="text-xs text-neutral-500 dark:text-neutral-400">
-              Only authorized Firebase Accounts can access this panel.
+        <div className="w-full max-w-md p-6 bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-3xl shadow-xl space-y-5 text-center">
+          <div className="w-14 h-14 bg-rose-100 dark:bg-rose-950/40 rounded-2xl flex items-center justify-center mx-auto text-rose-600 dark:text-rose-400">
+            <Lock className="w-7 h-7" />
+          </div>
+          <div className="space-y-1.5">
+            <h2 className="text-lg font-bold text-neutral-900 dark:text-neutral-100">
+              {lang === 'bn' ? 'অ্যাডমিন এক্সেস সংরক্ষিত' : 'Admin Access Restricted'}
+            </h2>
+            <p className="text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed">
+              {lang === 'bn'
+                ? 'এই প্যানেলটি শুধুমাত্র অনুমোদিত মেইন অ্যাডমিন (UID: UI28ofvzB7cjNJvCG0DvYgbCu9J3) এর জন্য Firebase Authentication দ্বারা সুরক্ষিত।'
+                : 'This panel is strictly restricted to the authorized Main Admin (UID: UI28ofvzB7cjNJvCG0DvYgbCu9J3) via Firebase Authentication.'}
             </p>
           </div>
 
-          <form onSubmit={handleAdminLogin} className="space-y-4">
-            {authError && (
-              <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl text-xs text-red-600 dark:text-red-400">
-                {authError}
-              </div>
-            )}
-            <div>
-              <label className="text-xs font-semibold text-neutral-700 dark:text-neutral-300 block mb-1">Firebase Email</label>
-              <input
-                type="email"
-                value={authEmail}
-                onChange={(e) => setAuthEmail(e.target.value)}
-                className="w-full text-sm p-3 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:ring-2 focus:ring-red-500"
-                required
-              />
-            </div>
-            <div>
-              <label className="text-xs font-semibold text-neutral-700 dark:text-neutral-300 block mb-1">Password</label>
-              <input
-                type="password"
-                value={authPassword}
-                onChange={(e) => setAuthPassword(e.target.value)}
-                className="w-full text-sm p-3 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:ring-2 focus:ring-red-500"
-                required
-              />
-            </div>
+          <div className="pt-2 space-y-2">
             <button
-              type="submit"
-              disabled={isAuthenticating}
-              className="w-full py-3 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-sm shadow-md flex items-center justify-center gap-2 transition-colors disabled:opacity-70"
+              onClick={() => setIsAuthModalOpen(true)}
+              className="w-full py-2.5 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-md transition-colors"
             >
-              {isAuthenticating ? (
-                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              ) : (
-                <>
-                  <ShieldCheck className="w-5 h-5" />
-                  <span>Authenticate as Admin</span>
-                </>
-              )}
+              {lang === 'bn' ? 'মেইন অ্যাডমিন অ্যাকাউন্টে লগইন করুন' : 'Sign In via Main Login'}
             </button>
-          </form>
-
-          <button
-            onClick={() => {
-              const auth = getAuth(app);
-              signOut(auth);
-              setActiveTab('feed');
-            }}
-            className="w-full py-2 text-xs font-semibold text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200 text-center"
-          >
-            Return to Feed
-          </button>
+            <button
+              onClick={() => setActiveTab('feed')}
+              className="w-full py-2 text-xs font-semibold text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200 transition-colors"
+            >
+              {lang === 'bn' ? 'হোম ফিডে ফিরে যান' : 'Return to Feed'}
+            </button>
+          </div>
         </div>
       </div>
     );

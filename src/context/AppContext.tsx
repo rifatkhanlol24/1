@@ -20,7 +20,7 @@ import {
   INITIAL_NOTIFICATIONS,
 } from '../data/mockData';
 import { generateUniqueBilingualUser, sanitizeUserToBilingual } from '../utils/userGenerator';
-import { getAuth, onAuthStateChanged } from 'firebase/auth';
+import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut } from 'firebase/auth';
 import { getFirestore, doc, getDoc } from 'firebase/firestore';
 import { app } from '../lib/firebase';
 
@@ -473,6 +473,26 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const found = users.find(
       (u) => u.email.toLowerCase() === clean || u.username.toLowerCase() === clean
     );
+
+    // If password provided, attempt background Firebase Authentication
+    if (password) {
+      try {
+        const auth = getAuth(app);
+        const authEmail = found?.email || (clean.includes('@') ? clean : `${clean}@example.com`);
+        signInWithEmailAndPassword(auth, authEmail, password)
+          .then((cred) => {
+            if (cred.user.uid === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3') {
+              setIsFirebaseAdmin(true);
+            }
+          })
+          .catch((err) => {
+            console.warn('[Firebase Auth] Sign in:', err.message);
+          });
+      } catch (err) {
+        console.warn('[Firebase Auth] Sign in error:', err);
+      }
+    }
+
     if (found) {
       if (found.isBanned) {
         showToast(lang === 'bn' ? 'আপনার অ্যাকাউন্টটি স্থগিত (Banned) করা হয়েছে।' : 'Your account has been banned.');
@@ -587,6 +607,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const logout = () => {
+    try {
+      const auth = getAuth(app);
+      signOut(auth).catch(() => {});
+    } catch {}
+    setIsFirebaseAdmin(false);
     setCurrentUserId(null);
     localStorage.removeItem('vc_current_user_id');
     setActiveTab('feed');
