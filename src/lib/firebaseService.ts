@@ -36,7 +36,7 @@ export const firebaseService = {
       await set(userRef, user);
       return true;
     } catch (err) {
-      console.warn('Realtime Database saveUser error:', err);
+      console.error(`[Firebase RTDB Write Error] Failed to write user profile to path users/${user.id}:`, err);
       return false;
     }
   },

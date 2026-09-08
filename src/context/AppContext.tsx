@@ -880,7 +880,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       setUsers((prev) => [newUser, ...prev]);
       const savedOk = await firebaseService.saveUser(newUser);
       if (!savedOk) {
-        console.warn('Failed to save user to Realtime Database on registration');
+        console.error(`[Registration RTDB Error] Failed to write user profile to path users/${uid}`);
       }
 
       setCurrentUserId(uid);
