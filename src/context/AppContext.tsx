@@ -691,11 +691,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       const englishNameRegex = /^[a-zA-Z ]+$/;
       const hasBengaliChars = /[\u0980-\u09FF]/;
 
-      if (hasBengaliChars.test(trimmedName) || !englishNameRegex.test(trimmedName) || trimmedName.length < 2) {
+      if (
+        hasBengaliChars.test(trimmedName) ||
+        !englishNameRegex.test(trimmedName) ||
+        trimmedName.length < 2 ||
+        trimmedName.length > 70
+      ) {
+        console.warn('Profile Name validation failed for fullName:', trimmedName);
         showToast(
           lang === 'bn'
-            ? 'নাম শুধুমাত্র ইংরেজি অক্ষর (A-Z, a-z) এবং স্পেস হতে পারবে (সংখ্যা, প্রতীক বা বাংলা গ্রহণযোগ্য নয়)।'
-            : 'Name must contain only English letters (A-Z, a-z) and spaces.'
+            ? 'নাম শুধুমাত্র ইংরেজি অক্ষর (A-Z, a-z) এবং স্পেস হতে পারবে (২-৭০ অক্ষর, সংখ্যা, প্রতীক বা বাংলা গ্রহণযোগ্য নয়)।'
+            : 'Name must contain only English letters (A-Z, a-z) and spaces (2-70 characters).'
         );
         return;
       }
@@ -761,6 +767,24 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setUsers((prev) =>
       prev.map((u) => (u.id === targetId ? { ...u, ...finalData } : u))
     );
+
+    // Synchronize authorName / authorUsername across posts for immediate reflection
+    if (finalData.fullName || finalData.username || finalData.avatar) {
+      setPosts((prevPosts) =>
+        prevPosts.map((p) => {
+          if (p.authorId === targetId) {
+            return {
+              ...p,
+              ...(finalData.fullName ? { authorName: finalData.fullName } : {}),
+              ...(finalData.username ? { authorUsername: finalData.username } : {}),
+              ...(finalData.avatar ? { authorAvatar: finalData.avatar } : {}),
+            };
+          }
+          return p;
+        })
+      );
+    }
+
     showToast(lang === 'bn' ? 'প্রোফাইল সফলভাবে আপডেট হয়েছে!' : 'Profile updated successfully!');
   };
 

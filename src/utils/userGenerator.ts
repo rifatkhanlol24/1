@@ -166,29 +166,20 @@ export function generateUniqueBilingualUser(index: number, targetFollowingId?: s
 }
 
 /**
- * Sanitizes any raw or robotic user object (e.g. USER-0001212008) into a realistic bilingual user
+ * Sanitizes any raw or robotic user object (e.g. USER-0001212008) into a realistic user
  */
 export function sanitizeUserToBilingual(user: User): User {
-  if (user.id === 'user-admin' || user.email === 'soheltajbhola@gmail.com') {
-    return {
-      ...user,
-      fullNameBn: 'শোয়েল তাজ',
-      fullNameEn: 'Shohel Taj',
-      fullName: 'শোয়েল তাজ (Shohel Taj)',
-      username: 'shoheltaj',
-    };
+  // If user already has a valid non-robotic fullName, preserve it completely
+  if (
+    user.fullName &&
+    !user.fullName.startsWith('USER-') &&
+    !user.username.startsWith('USER-')
+  ) {
+    return user;
   }
 
-  // If user has USER- in username or fullName
-  const isRobotic =
-    user.username.startsWith('USER-') ||
-    user.fullName.startsWith('USER-') ||
-    !user.fullNameBn;
-
-  if (!isRobotic) return user;
-
   let seed = 0;
-  const numMatch = user.username.match(/\d+/) || user.fullName.match(/\d+/) || user.id.match(/\d+/);
+  const numMatch = user.username.match(/\d+/) || user.fullName?.match(/\d+/) || user.id.match(/\d+/);
   if (numMatch) {
     seed = parseInt(numMatch[0].slice(-6), 10) || 1;
   } else {
@@ -203,10 +194,10 @@ export function sanitizeUserToBilingual(user: User): User {
 
   return {
     ...user,
-    fullName: generated.fullName,
+    fullName: generated.fullNameEn,
     fullNameBn: generated.fullNameBn,
     fullNameEn: generated.fullNameEn,
-    username: generated.username,
+    username: user.username || generated.username,
     avatar: user.avatar && !user.avatar.includes('1534528741775-53994a69daeb') ? user.avatar : generated.avatar,
     bio: user.bio || generated.bio,
   };

@@ -160,11 +160,16 @@ export const ProfileView: React.FC = () => {
     const englishNameRegex = /^[a-zA-Z ]+$/;
     const hasBengaliChars = /[\u0980-\u09FF]/;
 
-    if (hasBengaliChars.test(trimmedFullName) || !englishNameRegex.test(trimmedFullName) || trimmedFullName.length < 2) {
+    if (
+      hasBengaliChars.test(trimmedFullName) ||
+      !englishNameRegex.test(trimmedFullName) ||
+      trimmedFullName.length < 2 ||
+      trimmedFullName.length > 70
+    ) {
       showToast(
         lang === 'bn'
-          ? 'নাম শুধুমাত্র ইংরেজি অক্ষর (A-Z, a-z) এবং স্পেস হতে পারবে (সংখ্যা, প্রতীক বা বাংলা গ্রহণযোগ্য নয়)।'
-          : 'Name must contain only English letters (A-Z, a-z) and spaces.'
+          ? 'নাম শুধুমাত্র ইংরেজি অক্ষর (A-Z, a-z) এবং স্পেস হতে পারবে (২-৭০ অক্ষর, সংখ্যা, প্রতীক বা বাংলা গ্রহণযোগ্য নয়)।'
+          : 'Name must contain only English letters (A-Z, a-z) and spaces (2-70 characters).'
       );
       return;
     }
