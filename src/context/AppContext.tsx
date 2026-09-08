@@ -20,7 +20,14 @@ import {
   INITIAL_NOTIFICATIONS,
 } from '../data/mockData';
 import { generateUniqueBilingualUser, sanitizeUserToBilingual } from '../utils/userGenerator';
-import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut } from 'firebase/auth';
+import {
+  getAuth,
+  onAuthStateChanged,
+  signInWithEmailAndPassword,
+  GoogleAuthProvider,
+  signInWithPopup,
+  signOut,
+} from 'firebase/auth';
 import { getFirestore, doc, getDoc } from 'firebase/firestore';
 import { app, auth, db } from '../lib/firebase';
 
@@ -42,6 +49,7 @@ interface AppContextType {
   recordLoggedInUser: (uid: string) => void;
   removeLoggedInAccount: (userId: string) => void;
   login: (emailOrUsername: string, password?: string) => Promise<boolean>;
+  loginWithGoogle: () => Promise<boolean>;
   register: (email: string, username: string, fullName: string, password?: string) => boolean;
   logout: () => void;
   switchUser: (userId: string) => void;
@@ -246,7 +254,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const loadUserProfileFromFirebase = async (
     uid: string,
     fallbackEmail?: string,
-    fallbackName?: string
+    fallbackName?: string,
+    fallbackPhoto?: string
   ): Promise<User> => {
     try {
       const userDocRef = doc(db, 'users', uid);
@@ -272,13 +281,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       fullName: fallbackName || (isAdmin ? 'Shohel Taj' : '1Social Member'),
       fullNameBn: isAdmin ? 'সোহেল তাজ' : undefined,
       fullNameEn: isAdmin ? 'Shohel Taj' : undefined,
-      avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80',
+      avatar: fallbackPhoto || (isAdmin
+        ? 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80'
+        : 'https://images.unsplash.com/photo-1535713875002?w=400&auto=format&fit=crop&q=80'),
       coverImage: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=1200&auto=format&fit=crop&q=80',
       bio: isAdmin
         ? 'Platform Lead & Creator. Building next-gen web applications and connecting communities across the globe 🚀'
         : 'Member of 1Social Community.',
       location: 'Dhaka, Bangladesh',
-      website: 'https://techlystb.blogspot.com',
+      website: isAdmin ? 'https://techlystb.blogspot.com' : undefined,
       statusBadge: isAdmin ? '🛡️ Platform Admin' : undefined,
       role: isAdmin ? 'admin' : 'user',
       isVerified: isAdmin,
@@ -303,7 +314,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         const profile = await loadUserProfileFromFirebase(
           user.uid,
           user.email || undefined,
-          user.displayName || undefined
+          user.displayName || undefined,
+          user.photoURL || undefined
         );
 
         setUsers((prev) => {
@@ -533,6 +545,64 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   // Auth Operations
+  // Google Sign-In via Firebase Auth Provider
+  const loginWithGoogle = async (): Promise<boolean> => {
+    try {
+      const provider = new GoogleAuthProvider();
+      provider.setCustomParameters({ prompt: 'select_account' });
+      const cred = await signInWithPopup(auth, provider);
+      const fbUser = cred.user;
+      const uid = fbUser.uid;
+
+      // Authoritative Single Admin check: UID must strictly match UI28ofvzB7cjNJvCG0DvYgbCu9J3
+      const isAdmin = uid === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3';
+      setIsFirebaseAdmin(isAdmin);
+
+      // Load profile from Firestore users/{uid}
+      const userProfile = await loadUserProfileFromFirebase(
+        uid,
+        fbUser.email || undefined,
+        fbUser.displayName || undefined,
+        fbUser.photoURL || undefined
+      );
+
+      setUsers((prev) => {
+        const filtered = prev.filter((u) => u.id !== uid && u.id !== 'user-admin');
+        return [userProfile, ...filtered];
+      });
+
+      setCurrentUserId(uid);
+      safeLocalStorageSet('vc_current_user_id', uid);
+      recordLoggedInUser(uid);
+
+      showToast(
+        lang === 'bn'
+          ? `Google দিয়ে স্বাগতম, ${userProfile.fullName}! ${isAdmin ? '(Main Admin ভেরিফাইড)' : ''}`
+          : `Signed in with Google, welcome ${userProfile.fullName}! ${isAdmin ? '(Main Admin Verified)' : ''}`
+      );
+      setIsAuthModalOpen(false);
+      return true;
+    } catch (err: any) {
+      console.error('[Firebase Google Auth Error]', err?.code, err?.message);
+
+      let errorMsg = err?.message || (lang === 'bn' ? 'Google সাইন ইন ব্যর্থ হয়েছে।' : 'Google Sign-In failed.');
+      if (err?.code === 'auth/popup-closed-by-user') {
+        errorMsg = lang === 'bn' ? 'Google সাইন-ইন উইন্ডো বন্ধ করা হয়েছে।' : 'Sign-in popup was closed.';
+      } else if (err?.code === 'auth/popup-blocked') {
+        errorMsg = lang === 'bn' ? 'ব্রাউজারে পপ-আপ ব্লক করা হয়েছে। দয়া করে পপ-আপ অনুমোদন করুন।' : 'Popup was blocked by browser. Please allow popups.';
+      } else if (err?.code === 'auth/cancelled-popup-request') {
+        errorMsg = lang === 'bn' ? 'আগের সাইন-ইন অনুরোধটি বাতিল হয়েছে।' : 'Sign-in request cancelled.';
+      } else if (err?.code === 'auth/operation-not-allowed') {
+        errorMsg = lang === 'bn' ? 'Firebase Console-এ Google Provider সক্রিয় করা প্রয়োজন।' : 'Google provider is not enabled in Firebase Console.';
+      } else if (err?.code === 'auth/unauthorized-domain') {
+        errorMsg = lang === 'bn' ? 'এই ডোমেইনটি Firebase Auth-এ অনুমোদিত নয় (Authorized Domain)।' : 'This domain is not authorized in Firebase Auth.';
+      }
+
+      showToast(errorMsg);
+      return false;
+    }
+  };
+
   const login = async (emailOrUsername: string, password?: string): Promise<boolean> => {
     const clean = emailOrUsername.trim();
     const cleanLower = clean.toLowerCase();
@@ -1807,6 +1877,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         recordLoggedInUser,
         removeLoggedInAccount,
         login,
+        loginWithGoogle,
         register,
         logout,
         switchUser,
