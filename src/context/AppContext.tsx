@@ -248,6 +248,37 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       // Authoritative Single Admin check: UID must strictly match UI28ofvzB7cjNJvCG0DvYgbCu9J3
       if (user && user.uid === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3') {
         setIsFirebaseAdmin(true);
+        setUsers((prev) => {
+          const exists = prev.find((u) => u.id === user.uid);
+          if (!exists) {
+            const adminUser: User = {
+              id: user.uid,
+              email: user.email || 'soheltajbhola@gmail.com',
+              password: '',
+              username: 'shoheltaj',
+              usernameChangeCount: 0,
+              fullName: user.displayName || 'Shohel Taj',
+              avatar: user.photoURL || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80',
+              coverImage: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=1200&auto=format&fit=crop&q=80',
+              bio: 'Platform Lead & Creator. Building next-gen web applications and connecting communities across the globe 🚀',
+              location: 'Dhaka, Bangladesh',
+              website: 'https://techlystb.blogspot.com',
+              statusBadge: '🛡️ Platform Admin',
+              role: 'admin',
+              isVerified: true,
+              isVip: true,
+              badge: 'VIP',
+              isBanned: false,
+              followers: [],
+              following: [],
+              createdAt: new Date().toISOString(),
+            };
+            return [adminUser, ...prev.filter((u) => u.id !== 'user-admin')];
+          }
+          return prev;
+        });
+        setCurrentUserId(user.uid);
+        recordLoggedInUser(user.uid);
       } else {
         setIsFirebaseAdmin(false);
       }
@@ -474,19 +505,20 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       (u) => u.email.toLowerCase() === clean || u.username.toLowerCase() === clean
     );
 
-    // If password provided, attempt background Firebase Authentication
-    if (password) {
+    const isDemoMockUser = found && (found.id.startsWith('user-') || found.email.endsWith('@1social.com'));
+
+    // If password provided and it is NOT a local mock user, authenticate with Firebase Auth
+    if (password && !isDemoMockUser && clean.includes('@')) {
       try {
         const auth = getAuth(app);
-        const authEmail = found?.email || (clean.includes('@') ? clean : `${clean}@example.com`);
-        signInWithEmailAndPassword(auth, authEmail, password)
+        signInWithEmailAndPassword(auth, clean, password)
           .then((cred) => {
             if (cred.user.uid === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3') {
               setIsFirebaseAdmin(true);
             }
           })
           .catch((err) => {
-            console.warn('[Firebase Auth] Sign in:', err.message);
+            console.warn('[Firebase Auth] Sign in error:', err.message);
           });
       } catch (err) {
         console.warn('[Firebase Auth] Sign in error:', err);

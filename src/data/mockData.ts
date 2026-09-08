@@ -3,7 +3,7 @@ import { User, Post, Message, Conversation, AppNotification, TrendingTag } from 
 export const INITIAL_USERS: User[] = [
   {
     id: 'user-admin',
-    email: 'soheltajbhola@gmail.com',
+    email: 'shohel@1social.com',
     password: 'password123',
     username: 'shoheltaj',
     usernameChangeCount: 0,
