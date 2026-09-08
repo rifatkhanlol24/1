@@ -17,6 +17,8 @@ export const RightSidebar: React.FC = () => {
   const {
     users,
     currentUser,
+    totalCommunityUsers,
+    realtimeActiveUsers,
     toggleFollow,
     setSelectedUserProfileId,
     setActiveTab,
@@ -32,6 +34,49 @@ export const RightSidebar: React.FC = () => {
 
   return (
     <aside className="hidden lg:flex flex-col w-80 shrink-0 h-[calc(100vh-4rem)] sticky top-16 p-4 space-y-4 overflow-y-auto">
+      {/* 1M Users & Real-Time Active Users Live Counter */}
+      <div className="p-4 rounded-3xl border border-indigo-200/70 dark:border-indigo-900/60 bg-gradient-to-br from-indigo-50/80 via-white to-purple-50/40 dark:from-neutral-900 dark:via-neutral-900 dark:to-indigo-950/40 shadow-xs space-y-3">
+        <div className="flex items-center justify-between">
+          <span className="text-[11px] font-black uppercase tracking-wider text-indigo-700 dark:text-indigo-300 flex items-center gap-1.5">
+            <Globe className="w-3.5 h-3.5 text-indigo-500" />
+            <span>{lang === 'bn' ? 'নেটওয়ার্ক পরিসংখ্যান' : 'Live Network'}</span>
+          </span>
+          <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 text-[10px] font-bold">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
+            <span>Online</span>
+          </span>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2">
+          {/* Total 1M Users */}
+          <div className="p-2.5 rounded-2xl bg-white dark:bg-neutral-800/80 border border-neutral-200/60 dark:border-neutral-700/60">
+            <p className="text-[10px] text-neutral-500 dark:text-neutral-400 font-medium truncate">
+              {lang === 'bn' ? 'টোটাল ইউজার' : 'Total Users'}
+            </p>
+            <p className="text-base font-black text-indigo-600 dark:text-indigo-400 tracking-tight">
+              {totalCommunityUsers.toLocaleString()}
+            </p>
+            <p className="text-[9px] text-neutral-400 font-bold truncate">
+              {lang === 'bn' ? '১ মিলিয়ন ইউজার' : '1M Users Pool'}
+            </p>
+          </div>
+
+          {/* Real-Time Active Users */}
+          <div className="p-2.5 rounded-2xl bg-white dark:bg-neutral-800/80 border border-neutral-200/60 dark:border-neutral-700/60">
+            <div className="flex items-center gap-1 text-[10px] text-emerald-600 dark:text-emerald-400 font-medium truncate">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+              <span className="truncate">{lang === 'bn' ? 'রিয়েল টাইম' : 'Active Now'}</span>
+            </div>
+            <p className="text-base font-black text-emerald-600 dark:text-emerald-400 tracking-tight">
+              {realtimeActiveUsers.toLocaleString()}
+            </p>
+            <p className="text-[9px] text-emerald-500 font-bold truncate">
+              {lang === 'bn' ? 'লাইভ এক্টিভ' : 'Real-time Live'}
+            </p>
+          </div>
+        </div>
+      </div>
+
       {/* Firebase Cloud Status Card */}
       <div className="p-3.5 rounded-2xl bg-gradient-to-br from-amber-500/10 via-rose-500/5 to-indigo-500/10 dark:from-amber-950/30 dark:to-neutral-900 border border-amber-300/40 dark:border-amber-800/40 shadow-xs space-y-2">
         <div className="flex items-center justify-between">

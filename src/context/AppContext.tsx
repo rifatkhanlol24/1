@@ -19,6 +19,7 @@ import {
   INITIAL_MESSAGES,
   INITIAL_NOTIFICATIONS,
 } from '../data/mockData';
+import { generateUniqueBilingualUser, sanitizeUserToBilingual } from '../utils/userGenerator';
 
 export type NavigationTab =
   | 'feed'
@@ -50,7 +51,9 @@ interface AppContextType {
   adminApproveVerification: (requestId: string) => void;
   adminRejectVerification: (requestId: string) => void;
 
-  // Bot Engine & Growth Automation
+  // 1M Community Users & Live Network Stats
+  totalCommunityUsers: number;
+  realtimeActiveUsers: number;
   botPoolTotal: number;
   botPoolSent: number;
   adminSendBotFollowers: (targetUsername: string, count: number) => { success: boolean; addedCount: number; message: string };
@@ -186,7 +189,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           ...list[adminIndex],
           id: 'user-admin',
           email: 'soheltajbhola@gmail.com',
-          fullName: 'Shohel Taj',
+          fullName: 'শোয়েল তাজ (Shohel Taj)',
+          fullNameBn: 'শোয়েল তাজ',
+          fullNameEn: 'Shohel Taj',
           username: 'shoheltaj',
           role: 'admin',
           isVerified: true,
@@ -195,9 +200,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       } else {
         list = [INITIAL_USERS[0], ...list];
       }
-      return list;
+      // Upgrade and sanitize every user to unique bilingual Bengali & English names
+      return list.map(sanitizeUserToBilingual);
     } catch {
-      return INITIAL_USERS;
+      return INITIAL_USERS.map(sanitizeUserToBilingual);
     }
   });
 
@@ -267,12 +273,29 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [selectedUserProfileId, setSelectedUserProfileId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
 
-  // 1 Million Bot Pool Stats
+  // Total 1M Users Platform & Real-Time Active Users
+  const totalCommunityUsers = 1000000;
   const botPoolTotal = 1000000;
   const [botPoolSent, setBotPoolSent] = useState<number>(() => {
     const saved = localStorage.getItem('vc_bot_sent');
-    return saved ? parseInt(saved, 10) : 48500;
+    return saved ? parseInt(saved, 10) : 1000000;
   });
+
+  const [realtimeActiveUsers, setRealtimeActiveUsers] = useState<number>(() => {
+    return 84320 + Math.floor(Math.random() * 180);
+  });
+
+  // Real-time active user count fluctuation (emulates live active network traffic)
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setRealtimeActiveUsers((prev) => {
+        const delta = Math.floor(Math.random() * 25) - 12;
+        const next = prev + delta;
+        return next < 82000 ? 83500 : next > 94000 ? 91200 : next;
+      });
+    }, 3800);
+    return () => clearInterval(timer);
+  }, []);
 
   // Verification Requests state
   const [verificationRequests, setVerificationRequests] = useState<VerificationRequest[]>(() => {
@@ -1287,30 +1310,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const sampleCount = Math.min(safeCount, 20);
     const baseUserIndex = botPoolSent;
     for (let i = 0; i < sampleCount; i++) {
-      const userNum = ((baseUserIndex + i) % 1000000000) + 1;
-      const paddedNumber = String(userNum).padStart(10, '0');
-      const formattedUsername = `USER-${paddedNumber}`;
-      const generatedUserId = `user-${paddedNumber}`;
-      const photoId = userPhotos[i % userPhotos.length];
-      const bioText = communityBios[i % communityBios.length];
-      newCommunityUsers.push({
-        id: generatedUserId,
-        email: `user_${paddedNumber}@1social.com`,
-        username: formattedUsername,
-        fullName: formattedUsername,
-        avatar: `https://images.unsplash.com/photo-${photoId}?w=200&auto=format&fit=crop&q=80`,
-        coverImage: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&auto=format&fit=crop&q=80',
-        bio: bioText,
-        website: 'https://techlystb.blogspot.com',
-        links: [{ id: `u-l-${paddedNumber}-1`, title: 'Tech Lyst B', url: 'https://techlystb.blogspot.com' }],
-        role: 'user',
-        isVerified: false,
-        isBanned: false,
-        followers: [],
-        following: [targetUser.id],
-        createdAt: new Date().toISOString(),
-      });
-      newFollowerIds.push(generatedUserId);
+      const userNum = ((baseUserIndex + i) % 1000000) + 1;
+      const communityUser = generateUniqueBilingualUser(userNum, targetUser.id);
+      newCommunityUsers.push(communityUser);
+      newFollowerIds.push(communityUser.id);
     }
 
     const currentTotal = targetUser.followerCount ?? targetUser.followers.length;
@@ -1451,21 +1454,20 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const newComments: PostComment[] = [];
 
     for (let i = 0; i < safeCount; i++) {
-      const userNum = ((botPoolSent + i) % 1000000000) + 1;
-      const paddedNumber = String(userNum).padStart(10, '0');
-      const userUsername = `USER-${paddedNumber}`;
+      const userNum = ((botPoolSent + i) % 1000000) + 1;
+      const commenter = generateUniqueBilingualUser(userNum);
       const text =
         customCommentText && customCommentText.trim()
           ? customCommentText.trim()
           : templates[i % templates.length];
 
       newComments.push({
-        id: `cm-user-${Date.now()}-${i}-${paddedNumber}`,
+        id: `cm-user-${Date.now()}-${i}-${userNum}`,
         postId: targetPost.id,
-        authorId: `user-${paddedNumber}`,
-        authorName: userUsername,
-        authorUsername: userUsername,
-        authorAvatar: `https://images.unsplash.com/photo-${1534528741775 + (i % 500)}?w=200&auto=format&fit=crop&q=80`,
+        authorId: commenter.id,
+        authorName: commenter.fullName,
+        authorUsername: commenter.username,
+        authorAvatar: commenter.avatar,
         content: text,
         createdAt: new Date().toISOString(),
         likes: [],
@@ -1509,6 +1511,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         requestVerification,
         adminApproveVerification,
         adminRejectVerification,
+        totalCommunityUsers,
+        realtimeActiveUsers,
         botPoolTotal,
         botPoolSent,
         adminSendBotFollowers,

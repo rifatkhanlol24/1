@@ -15,6 +15,7 @@ import { AuthModal } from './components/AuthModal';
 import { AuthGateScreen } from './components/AuthGateScreen';
 import { ShareModal } from './components/ShareModal';
 import { VercelModal } from './components/VercelModal';
+import { PwaInstallSystem } from './components/PwaInstallSystem';
 import { Toast } from './components/Toast';
 import { ErrorBoundary } from './components/ErrorBoundary';
 
@@ -55,6 +56,11 @@ const MainLayout: React.FC = () => {
         {(activeTab === 'feed' || activeTab === 'explore' || activeTab === 'profile') && (
           <RightSidebar />
         )}
+      </div>
+
+      {/* Global PWA Install System - After Login (At the very bottom of everything) */}
+      <div className="max-w-7xl mx-auto w-full px-3 sm:px-6 py-4 mb-20 md:mb-6">
+        <PwaInstallSystem variant="card" />
       </div>
 
       {/* Bottom Navigation (Mobile) */}

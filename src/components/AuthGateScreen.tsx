@@ -19,6 +19,7 @@ import {
   ArrowRight,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import { PwaInstallSystem } from './PwaInstallSystem';
 
 export const AuthGateScreen: React.FC = () => {
   const {
@@ -592,6 +593,11 @@ export const AuthGateScreen: React.FC = () => {
 
         </div>
       </main>
+
+      {/* Global PWA Install System - Before Login */}
+      <div className="w-full max-w-6xl mx-auto px-4 py-3">
+        <PwaInstallSystem variant="card" />
+      </div>
 
       {/* Footer */}
       <footer className="w-full max-w-6xl mx-auto px-4 py-4 border-t border-neutral-200/60 dark:border-neutral-800/60 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-neutral-500 dark:text-neutral-400">

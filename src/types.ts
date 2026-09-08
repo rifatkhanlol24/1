@@ -13,9 +13,12 @@ export interface User {
   username: string;
   usernameChangeCount?: number; // Maximum 10 times for regular users
   fullName: string;
+  fullNameBn?: string;
+  fullNameEn?: string;
   avatar: string;
   coverImage: string;
   bio: string;
+  bioBn?: string;
   location?: string;
   website?: string;
   links?: ProfileLink[]; // Up to 10 links

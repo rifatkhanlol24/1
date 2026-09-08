@@ -22,6 +22,8 @@ export const Navbar: React.FC = () => {
   const {
     currentUser,
     users,
+    totalCommunityUsers,
+    realtimeActiveUsers,
     loggedInUserIds,
     conversations,
     switchUser,
@@ -154,6 +156,23 @@ export const Navbar: React.FC = () => {
 
         {/* Action Controls */}
         <div className="flex items-center gap-1.5 sm:gap-2.5">
+          {/* Real-time Active Users Live Pill */}
+          <div
+            id="nav-live-active-users-pill"
+            className="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800/60 text-emerald-700 dark:text-emerald-300 text-xs font-bold shrink-0"
+            title={
+              lang === 'bn'
+                ? `টোটাল ১ মিলিয়ন ইউজার • রিয়েল-টাইম লাইভ: ${realtimeActiveUsers.toLocaleString()}`
+                : `Total 1M Users • Real-time Active: ${realtimeActiveUsers.toLocaleString()}`
+            }
+          >
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+            <span className="text-[11px] font-mono tracking-tight">{realtimeActiveUsers.toLocaleString()}</span>
+            <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">
+              {lang === 'bn' ? 'অনলাইন' : 'Active'}
+            </span>
+          </div>
+
           {/* Create Post Button */}
           <button
             id="nav-create-post-btn"

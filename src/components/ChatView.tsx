@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { User } from '../types';
+import { CallModal } from './CallModal';
 
 export const ChatView: React.FC = () => {
   const {
@@ -35,6 +36,7 @@ export const ChatView: React.FC = () => {
   const [chatSearch, setChatSearch] = useState('');
   const [chatImage, setChatImage] = useState<string | null>(null);
   const [isMobileListOpen, setIsMobileListOpen] = useState(!activeConversationId);
+  const [activeCall, setActiveCall] = useState<{ type: 'audio' | 'video'; user: User } | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -106,10 +108,20 @@ export const ChatView: React.FC = () => {
     if (!cleanSearch) return false;
     const uUser = u.username.toLowerCase();
     const uName = u.fullName.toLowerCase();
+    const uNameBn = (u.fullNameBn || '').toLowerCase();
+    const uNameEn = (u.fullNameEn || '').toLowerCase();
     const uEmail = u.email.toLowerCase();
 
-    // 1. Direct contains check
-    if (uUser.includes(cleanSearch) || uName.includes(cleanSearch) || uEmail.includes(cleanSearch)) return true;
+    // 1. Direct contains check across English, Bengali, username and email
+    if (
+      uUser.includes(cleanSearch) ||
+      uName.includes(cleanSearch) ||
+      uNameBn.includes(cleanSearch) ||
+      uNameEn.includes(cleanSearch) ||
+      uEmail.includes(cleanSearch)
+    ) {
+      return true;
+    }
 
     // 2. Email prefix check (e.g. soheltajbhola)
     if (uEmail.split('@')[0].includes(cleanSearch)) return true;
@@ -117,16 +129,20 @@ export const ChatView: React.FC = () => {
     // 3. Normalized phonetic & spaceless check (ShohelTaj <-> Sohel Taj <-> shoheltaj)
     const uUserNorm = norm(uUser);
     const uNameNorm = norm(uName);
+    const uNameEnNorm = norm(uNameEn);
     const uEmailNorm = norm(uEmail.split('@')[0]);
 
     if (
       uUserNorm === searchNorm ||
       uNameNorm === searchNorm ||
+      uNameEnNorm === searchNorm ||
       uEmailNorm === searchNorm ||
       uUserNorm.includes(searchNorm) ||
       searchNorm.includes(uUserNorm) ||
       uNameNorm.includes(searchNorm) ||
       searchNorm.includes(uNameNorm) ||
+      uNameEnNorm.includes(searchNorm) ||
+      searchNorm.includes(uNameEnNorm) ||
       uEmailNorm.includes(searchNorm) ||
       searchNorm.includes(uEmailNorm)
     ) {
@@ -171,7 +187,7 @@ export const ChatView: React.FC = () => {
   return (
     <div
       id="chat-view-container"
-      className="rounded-3xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-sm overflow-hidden h-[calc(100vh-6.5rem)] flex"
+      className="rounded-2xl sm:rounded-3xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-sm overflow-hidden h-[calc(100dvh-8rem)] md:h-[calc(100vh-6.5rem)] flex mb-14 md:mb-0 relative"
     >
       {/* Left Sidebar: Conversations & Contacts List */}
       <div
@@ -473,63 +489,64 @@ export const ChatView: React.FC = () => {
         {activeConv && otherUser ? (
           <>
             {/* Chat Header */}
-            <div className="p-3.5 border-b border-neutral-200 dark:border-neutral-800 flex items-center justify-between bg-white/80 dark:bg-neutral-900/80 backdrop-blur-sm">
-              <div className="flex items-center gap-3">
+            <div className="p-2.5 sm:p-3.5 border-b border-neutral-200 dark:border-neutral-800 flex items-center justify-between gap-2 bg-white/90 dark:bg-neutral-900/90 backdrop-blur-sm">
+              <div className="flex items-center gap-2.5 min-w-0 flex-1">
                 {/* Back button on mobile */}
                 <button
                   id="mobile-back-to-list-btn"
                   onClick={() => setIsMobileListOpen(true)}
-                  className="md:hidden p-1.5 text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+                  className="md:hidden p-1.5 text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors shrink-0"
                   title="Back to contacts"
                 >
                   <ArrowLeft className="w-5 h-5" />
                 </button>
 
-                <div className="relative">
+                <div className="relative shrink-0">
                   <img
                     src={otherUser.avatar}
                     alt={otherUser.fullName}
-                    className="w-10 h-10 rounded-full object-cover border border-neutral-200 dark:border-neutral-700"
+                    className="w-9 h-9 sm:w-10 sm:h-10 rounded-full object-cover border border-neutral-200 dark:border-neutral-700"
                   />
                   <Circle className="w-2.5 h-2.5 fill-emerald-500 text-emerald-500 absolute bottom-0 right-0" />
                 </div>
 
-                <div>
-                  <h3 className="font-bold text-sm text-neutral-900 dark:text-neutral-100 flex items-center gap-1.5">
-                    {otherUser.fullName}
+                <div className="min-w-0 flex-1">
+                  <h3 className="font-bold text-xs sm:text-sm text-neutral-900 dark:text-neutral-100 flex items-center gap-1.5 truncate">
+                    <span className="truncate">{otherUser.fullName}</span>
                     {otherUser.isVerified && (
-                      <span className="text-xs text-sky-500" title="Verified">✓</span>
+                      <span className="text-xs text-sky-500 shrink-0" title="Verified">✓</span>
                     )}
                     {otherUser.isVip && (
-                      <span className="text-[10px] px-1.5 py-0.2 rounded bg-amber-100 text-amber-800 font-bold">VIP</span>
+                      <span className="text-[10px] px-1.5 py-0.2 rounded bg-amber-100 text-amber-800 font-bold shrink-0">VIP</span>
                     )}
                   </h3>
-                  <p className="text-[11px] text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />
-                    Online • @{otherUser.username}
+                  <p className="text-[10px] sm:text-[11px] text-emerald-600 dark:text-emerald-400 flex items-center gap-1 truncate">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block shrink-0" />
+                    <span className="truncate">Online • @{otherUser.username}</span>
                   </p>
                 </div>
               </div>
 
-              {/* Call / Action Mockups */}
-              <div className="flex items-center gap-1 text-neutral-500">
+              {/* Prominent Audio Call & Video Call Buttons */}
+              <div className="flex items-center gap-1 sm:gap-2 shrink-0">
                 <button
-                  onClick={() =>
-                    showToast(lang === 'bn' ? 'ভয়েস কল ফিচার শীঘ্রই আসছে' : 'Voice call coming soon')
-                  }
-                  className="p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-lg transition-colors"
-                  title="Voice Call"
+                  id="chat-audio-call-btn"
+                  onClick={() => setActiveCall({ type: 'audio', user: otherUser })}
+                  className="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs active:scale-95 transition-all"
+                  title={lang === 'bn' ? 'অডিও কল শুরু করুন' : 'Start Audio Call'}
                 >
-                  <Phone className="w-4 h-4" />
+                  <Phone className="w-3.5 h-3.5" />
+                  <span className="text-[11px] font-bold">{lang === 'bn' ? 'অডিও' : 'Audio'}</span>
                 </button>
+
                 <button
-                  onClick={() =>
-                    showToast(lang === 'bn' ? 'ভিডিও কল ফিচার শীঘ্রই আসছে' : 'Video call coming soon')
-                  }
-                  className="p-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-lg transition-colors"
-                  title="Video Call"
+                  id="chat-video-call-btn"
+                  onClick={() => setActiveCall({ type: 'video', user: otherUser })}
+                  className="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-xs active:scale-95 transition-all"
+                  title={lang === 'bn' ? 'ভিডিও কল শুরু করুন' : 'Start Video Call'}
                 >
-                  <Video className="w-4 h-4" />
+                  <Video className="w-3.5 h-3.5" />
+                  <span className="text-[11px] font-bold">{lang === 'bn' ? 'ভিডিও' : 'Video'}</span>
                 </button>
               </div>
             </div>
@@ -661,10 +678,10 @@ export const ChatView: React.FC = () => {
               ))}
             </div>
 
-            {/* MESSAGE INPUT & SEND FORM */}
+            {/* MESSAGE INPUT & SEND FORM - Sleek, Compact & Responsive */}
             <form
               onSubmit={handleSend}
-              className="p-3 border-t border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 flex items-center gap-2"
+              className="p-2 sm:p-2.5 border-t border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 flex items-center gap-1.5"
             >
               <input
                 ref={fileInputRef}
@@ -676,10 +693,10 @@ export const ChatView: React.FC = () => {
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="p-2 text-neutral-500 hover:text-indigo-600 dark:hover:text-indigo-400 rounded-xl hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors shrink-0"
+                className="p-1.5 text-neutral-500 hover:text-indigo-600 dark:hover:text-indigo-400 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors shrink-0"
                 title="Attach image"
               >
-                <ImageIcon className="w-5 h-5" />
+                <ImageIcon className="w-4 h-4 sm:w-5 sm:h-5" />
               </button>
 
               <button
@@ -688,10 +705,10 @@ export const ChatView: React.FC = () => {
                   setInputMessage((prev) => prev + ' 😊');
                   messageInputRef.current?.focus();
                 }}
-                className="p-2 text-neutral-500 hover:text-indigo-600 dark:hover:text-indigo-400 rounded-xl hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors shrink-0"
+                className="p-1.5 text-neutral-500 hover:text-indigo-600 dark:hover:text-indigo-400 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors shrink-0"
                 title="Add emoji"
               >
-                <Smile className="w-5 h-5" />
+                <Smile className="w-4 h-4 sm:w-5 sm:h-5" />
               </button>
 
               <input
@@ -702,7 +719,7 @@ export const ChatView: React.FC = () => {
                 placeholder={
                   lang === 'bn' ? 'মেসেজ লিখুন...' : 'Type a message...'
                 }
-                className="flex-1 px-3.5 py-2 text-xs rounded-xl bg-neutral-100 dark:bg-neutral-800 border border-transparent focus:border-indigo-500 text-neutral-900 dark:text-neutral-100 outline-none"
+                className="flex-1 min-w-0 px-3 py-1.5 text-xs rounded-xl bg-neutral-100 dark:bg-neutral-800 border border-transparent focus:border-indigo-500 text-neutral-900 dark:text-neutral-100 outline-none"
               />
 
               {/* Prominent Send Message Button */}
@@ -710,12 +727,12 @@ export const ChatView: React.FC = () => {
                 id="send-message-btn"
                 type="submit"
                 disabled={!inputMessage.trim() && !chatImage}
-                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs disabled:opacity-40 transition-all shadow-sm shadow-indigo-500/20 active:scale-95 shrink-0"
+                className="flex items-center gap-1.5 px-3 sm:px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs disabled:opacity-40 transition-all shadow-sm shadow-indigo-500/20 active:scale-95 shrink-0"
                 title="Send Message"
               >
-                <Send className="w-4 h-4" />
-                <span className="hidden sm:inline">
-                  {lang === 'bn' ? 'পাঠান' : 'Send'}
+                <Send className="w-3.5 h-3.5" />
+                <span>
+                  {lang === 'bn' ? 'সেন্ড' : 'Send'}
                 </span>
               </button>
             </form>
@@ -763,6 +780,16 @@ export const ChatView: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Interactive Audio & Video Call Modal */}
+      {activeCall && (
+        <CallModal
+          type={activeCall.type}
+          user={activeCall.user}
+          onClose={() => setActiveCall(null)}
+          lang={lang}
+        />
+      )}
     </div>
   );
 };

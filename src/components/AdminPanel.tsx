@@ -37,6 +37,8 @@ export const AdminPanel: React.FC = () => {
     currentUser,
     users,
     posts,
+    totalCommunityUsers,
+    realtimeActiveUsers,
     adminBanUser,
     adminChangeRole,
     adminDeleteUser,
@@ -335,28 +337,43 @@ export const AdminPanel: React.FC = () => {
         </div>
       </div>
 
-      {/* Metrics Cards */}
+      {/* Metrics Cards: 1M Users & Real-time Active System */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="p-4 rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-xs">
+        {/* Card 1: Total 1M Users */}
+        <div className="p-4 rounded-2xl border border-indigo-200 dark:border-indigo-900/60 bg-gradient-to-br from-indigo-50/50 via-white to-purple-50/30 dark:from-neutral-900 dark:to-indigo-950/30 shadow-xs">
           <div className="flex items-center justify-between text-neutral-500 mb-2">
-            <span className="text-xs font-medium">{lang === 'bn' ? 'মোট ব্যবহারকারী' : 'Total Users'}</span>
-            <Users className="w-4 h-4 text-amber-500" />
+            <span className="text-xs font-bold text-indigo-700 dark:text-indigo-400">
+              {lang === 'bn' ? 'টোটাল ইউজার (১ মিলিয়ন)' : 'Total 1M Users'}
+            </span>
+            <Users className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
           </div>
-          <p className="text-2xl font-black text-neutral-900 dark:text-neutral-100">{totalUsers}</p>
-          <span className="text-[10px] text-emerald-500 font-medium">Firestore Synced</span>
-        </div>
-
-        <div className="p-4 rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-xs">
-          <div className="flex items-center justify-between text-neutral-500 mb-2">
-            <span className="text-xs font-medium">{lang === 'bn' ? 'ওয়ান মিলিয়ন ইউজার পুল' : '1M Users Pool'}</span>
-            <Users className="w-4 h-4 text-purple-500" />
-          </div>
-          <p className="text-2xl font-black text-purple-600 dark:text-purple-400">
-            {(botPoolTotal - botPoolSent).toLocaleString()}
+          <p className="text-2xl font-black text-indigo-600 dark:text-indigo-400 tracking-tight">
+            {totalCommunityUsers.toLocaleString()}
           </p>
-          <span className="text-[10px] text-neutral-400">1 Million Capacity</span>
+          <span className="text-[10px] text-indigo-500 font-semibold flex items-center gap-1 mt-0.5">
+            <CheckCircle className="w-3 h-3 text-emerald-500" />
+            <span>{lang === 'bn' ? 'ওয়ান মিলিয়ন ইউজার কনভার্টেড' : '1M Users Active Pool'}</span>
+          </span>
         </div>
 
+        {/* Card 2: Real-time Active Users */}
+        <div className="p-4 rounded-2xl border border-emerald-200 dark:border-emerald-900/60 bg-gradient-to-br from-emerald-50/50 via-white to-teal-50/30 dark:from-neutral-900 dark:to-emerald-950/30 shadow-xs">
+          <div className="flex items-center justify-between text-neutral-500 mb-2">
+            <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400">
+              {lang === 'bn' ? 'রিয়েল টাইম এক্টিভ' : 'Real-Time Active'}
+            </span>
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping" />
+          </div>
+          <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400 tracking-tight">
+            {realtimeActiveUsers.toLocaleString()}
+          </p>
+          <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1 mt-0.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />
+            <span>{lang === 'bn' ? 'লাইভ সক্রিয় ব্যবহারকারী' : 'Live Online Now'}</span>
+          </span>
+        </div>
+
+        {/* Card 3: VIP / Verify Queue */}
         <div className="p-4 rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-xs">
           <div className="flex items-center justify-between text-neutral-500 mb-2">
             <span className="text-xs font-medium">{lang === 'bn' ? 'ভেরিফাই আবেদন' : 'VIP/Verify Queue'}</span>
@@ -368,6 +385,7 @@ export const AdminPanel: React.FC = () => {
           <span className="text-[10px] text-amber-500 font-medium">Awaiting Review</span>
         </div>
 
+        {/* Card 4: Total Likes & Reactions */}
         <div className="p-4 rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-xs">
           <div className="flex items-center justify-between text-neutral-500 mb-2">
             <span className="text-xs font-medium">{lang === 'bn' ? 'মোট লাইক ও রিঅ্যাকশন' : 'Engagements'}</span>

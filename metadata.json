@@ -1,6 +1,6 @@
 {
   "name": "1 social",
   "description": "Modern social media platform with photo sharing, real-time editing, live messaging, user customization, dark mode, push notifications, and administrative controls.",
-  "requestFramePermissions": ["camera"],
+  "requestFramePermissions": ["camera", "microphone"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
