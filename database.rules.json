@@ -1,0 +1,112 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+
+    "admins": {
+      ".read": "auth != null && auth.uid === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3'",
+      ".write": "auth != null && auth.uid === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3'",
+      "$adminId": {
+        ".validate": "newData.hasChildren(['role']) && newData.child('role').val() === 'admin'"
+      }
+    },
+
+    "users": {
+      ".read": true,
+      "$userId": {
+        ".write": "auth != null && (auth.uid === $userId || auth.uid === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3')",
+        "role": {
+          ".write": "auth != null && auth.uid === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3'",
+          ".validate": "newData.isString() && (newData.val() === 'user' || newData.val() === 'moderator' || (newData.val() === 'admin' && auth.uid === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3'))"
+        },
+        "usernameChangeCount": {
+          ".write": "auth != null && (auth.uid === $userId || auth.uid === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3')"
+        },
+        "isVerified": {
+          ".write": "auth != null && auth.uid === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3'"
+        },
+        "isVip": {
+          ".write": "auth != null && auth.uid === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3'"
+        },
+        "isBanned": {
+          ".write": "auth != null && auth.uid === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3'"
+        }
+      }
+    },
+
+    "posts": {
+      ".read": true,
+      "$postId": {
+        ".write": "auth != null && (!data.exists() || data.child('authorId').val() === auth.uid || auth.uid === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3')",
+        "likes": {
+          ".write": "auth != null"
+        },
+        "comments": {
+          ".write": "auth != null"
+        }
+      }
+    },
+
+    "comments": {
+      ".read": true,
+      "$commentId": {
+        ".write": "auth != null && (!data.exists() || data.child('authorId').val() === auth.uid || auth.uid === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3')"
+      }
+    },
+
+    "likes": {
+      ".read": true,
+      "$likeId": {
+        ".write": "auth != null && (!data.exists() || data.child('userId').val() === auth.uid || auth.uid === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3')"
+      }
+    },
+
+    "follows": {
+      ".read": true,
+      "$followId": {
+        ".write": "auth != null && (!data.exists() || data.child('followerId').val() === auth.uid || auth.uid === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3')"
+      }
+    },
+
+    "messages": {
+      "$messageId": {
+        ".read": "auth != null && (data.child('senderId').val() === auth.uid || data.child('receiverId').val() === auth.uid || auth.uid === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3')",
+        ".write": "auth != null && (!data.exists() || data.child('senderId').val() === auth.uid || auth.uid === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3')"
+      }
+    },
+
+    "conversations": {
+      "$conversationId": {
+        ".read": "auth != null && (data.child('participant1').val() === auth.uid || data.child('participant2').val() === auth.uid || auth.uid === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3')",
+        ".write": "auth != null && (!data.exists() || data.child('participant1').val() === auth.uid || data.child('participant2').val() === auth.uid || auth.uid === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3')"
+      }
+    },
+
+    "notifications": {
+      "$notificationId": {
+        ".read": "auth != null && (data.child('userId').val() === auth.uid || auth.uid === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3')",
+        ".write": "auth != null && (!data.exists() || data.child('actorId').val() === auth.uid || data.child('userId').val() === auth.uid || auth.uid === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3')"
+      }
+    },
+
+    "reports": {
+      ".read": "auth != null && auth.uid === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3'",
+      "$reportId": {
+        ".write": "auth != null && (!data.exists() || auth.uid === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3')"
+      }
+    },
+
+    "verification_requests": {
+      ".read": "auth != null && auth.uid === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3'",
+      "$reqId": {
+        ".read": "auth != null && (data.child('userId').val() === auth.uid || auth.uid === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3')",
+        ".write": "auth != null && (!data.exists() || data.child('userId').val() === auth.uid || auth.uid === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3')"
+      }
+    },
+
+    "system_settings": {
+      ".read": "auth != null && auth.uid === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3'",
+      ".write": "auth != null && auth.uid === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3'"
+    }
+  }
+}
