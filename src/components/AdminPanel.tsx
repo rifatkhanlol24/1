@@ -259,7 +259,7 @@ export const AdminPanel: React.FC = () => {
   const totalUsers = users.length;
   const totalPosts = posts.length;
   const flaggedPosts = posts.filter((p) => p.isFlagged);
-  const totalLikes = posts.reduce((acc, p) => acc + p.likes.length, 0);
+  const totalLikes = posts.reduce((acc, p) => acc + (p.likes || []).length, 0);
   const pendingVerifications = verificationRequests.filter((v) => v.status === 'pending');
 
   const filteredUsers = users.filter(
@@ -908,11 +908,11 @@ export const AdminPanel: React.FC = () => {
                           </p>
                           <div className="flex items-center gap-2 mt-1 text-[10px] text-neutral-500 dark:text-neutral-400">
                             <span>
-                              Followers: <strong>{(previewedBotUser.followerCount ?? previewedBotUser.followers.length).toLocaleString()}</strong>
+                              Followers: <strong>{(previewedBotUser.followerCount ?? (previewedBotUser.followers || []).length).toLocaleString()}</strong>
                             </span>
                             <span>•</span>
                             <span>
-                              Following: <strong>{previewedBotUser.following.length}</strong>
+                              Following: <strong>{(previewedBotUser.following || []).length}</strong>
                             </span>
                           </div>
                         </div>
@@ -1059,9 +1059,9 @@ export const AdminPanel: React.FC = () => {
                         </p>
                         <div className="flex items-center gap-3 text-[10px] text-neutral-500 dark:text-neutral-400 pt-1 border-t border-rose-100 dark:border-rose-900/50">
                           <span className="text-rose-600 dark:text-rose-400 font-bold">
-                            ❤️ {(previewedLikePost.likesCount ?? previewedLikePost.likes.length).toLocaleString()} Likes
+                            ❤️ {(previewedLikePost.likesCount ?? (previewedLikePost.likes || []).length).toLocaleString()} Likes
                           </span>
-                          <span>💬 {previewedLikePost.comments.length} Comments</span>
+                          <span>💬 {(previewedLikePost.comments || []).length} Comments</span>
                         </div>
                       </div>
                     ) : (
@@ -1196,9 +1196,9 @@ export const AdminPanel: React.FC = () => {
                           "{previewedCommentPost.content}"
                         </p>
                         <div className="flex items-center gap-3 text-[10px] text-neutral-500 dark:text-neutral-400 pt-1 border-t border-indigo-100 dark:border-indigo-900/50">
-                          <span>❤️ {previewedCommentPost.likes.length} Likes</span>
+                          <span>❤️ {(previewedCommentPost.likes || []).length} Likes</span>
                           <span className="text-indigo-600 dark:text-indigo-400 font-bold">
-                            💬 {previewedCommentPost.comments.length} Comments
+                            💬 {(previewedCommentPost.comments || []).length} Comments
                           </span>
                         </div>
                       </div>

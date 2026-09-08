@@ -31,7 +31,7 @@ import {
 } from 'firebase/auth';
 import { ref, get } from 'firebase/database';
 import { app, auth, db } from '../lib/firebase';
-import { firebaseService } from '../lib/firebaseService';
+import { firebaseService, sanitizeUser, sanitizePost } from '../lib/firebaseService';
 
 export type NavigationTab =
   | 'feed'
@@ -264,10 +264,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       const snapshot = await get(userRef);
       if (snapshot.exists()) {
         const data = snapshot.val() as User;
-        return {
+        return sanitizeUser({
           ...data,
           id: uid,
-        };
+        });
       }
     } catch (err) {
       console.warn('[Firebase RTDB] Could not fetch profile for UID:', uid, err);
@@ -571,13 +571,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const currentUser = useMemo(() => {
     if (!currentUserId) return null;
     const found = users.find((u) => u.id === currentUserId);
-    if (found) return found;
+    if (found) return sanitizeUser(found);
 
     // Fallback if Firebase Auth user exists but RTDB sync is pending
     const fbUser = auth.currentUser;
     if (fbUser && fbUser.uid === currentUserId) {
       const isAdmin = currentUserId === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3';
-      return {
+      return sanitizeUser({
         id: fbUser.uid,
         email: fbUser.email || `${fbUser.uid}@1social.com`,
         username: isAdmin ? 'shoheltaj' : `user_${fbUser.uid.slice(0, 6)}`,
@@ -595,7 +595,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         followers: [],
         following: ['UI28ofvzB7cjNJvCG0DvYgbCu9J3'],
         createdAt: new Date().toISOString(),
-      } as User;
+      });
     }
 
     return null;
@@ -1203,24 +1203,27 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const toggleFollow = (targetUserId: string) => {
     if (!currentUser || currentUser.id === targetUserId) return;
-    const isFollowing = currentUser.following.includes(targetUserId);
+    const myFollowing = currentUser.following || [];
+    const isFollowing = myFollowing.includes(targetUserId);
 
     setUsers((prev) =>
       prev.map((u) => {
         if (u.id === currentUser.id) {
+          const uFollowing = u.following || [];
           return {
             ...u,
             following: isFollowing
-              ? u.following.filter((id) => id !== targetUserId)
-              : [...u.following, targetUserId],
+              ? uFollowing.filter((id) => id !== targetUserId)
+              : [...uFollowing, targetUserId],
           };
         }
         if (u.id === targetUserId) {
+          const uFollowers = u.followers || [];
           return {
             ...u,
             followers: isFollowing
-              ? u.followers.filter((id) => id !== currentUser.id)
-              : [...u.followers, currentUser.id],
+              ? uFollowers.filter((id) => id !== currentUser.id)
+              : [...uFollowers, currentUser.id],
           };
         }
         return u;
@@ -1312,10 +1315,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const post = posts.find((p) => p.id === postId);
     if (!post) return;
 
-    const isLiked = post.likes.includes(currentUser.id);
+    const pLikes = post.likes || [];
+    const isLiked = pLikes.includes(currentUser.id);
     const updatedLikes = isLiked
-      ? post.likes.filter((id) => id !== currentUser.id)
-      : [...post.likes, currentUser.id];
+      ? pLikes.filter((id) => id !== currentUser.id)
+      : [...pLikes, currentUser.id];
 
     setPosts((prev) =>
       prev.map((p) => (p.id === postId ? { ...p, likes: updatedLikes } : p))
@@ -1340,10 +1344,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const post = posts.find((p) => p.id === postId);
     if (!post) return;
 
-    const isSaved = post.savedBy.includes(currentUser.id);
+    const pSaved = post.savedBy || [];
+    const isSaved = pSaved.includes(currentUser.id);
     const updatedSaved = isSaved
-      ? post.savedBy.filter((id) => id !== currentUser.id)
-      : [...post.savedBy, currentUser.id];
+      ? pSaved.filter((id) => id !== currentUser.id)
+      : [...pSaved, currentUser.id];
 
     setPosts((prev) =>
       prev.map((p) => (p.id === postId ? { ...p, savedBy: updatedSaved } : p))

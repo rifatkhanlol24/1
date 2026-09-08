@@ -175,7 +175,7 @@ export const ExploreSearch: React.FC = () => {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {matchingUsers.map((u) => {
-              const isFollowing = currentUser?.following.includes(u.id);
+              const isFollowing = currentUser ? (currentUser.following || []).includes(u.id) : false;
               const isMe = currentUser?.id === u.id;
 
               return (

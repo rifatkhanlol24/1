@@ -9,6 +9,37 @@ import {
 import { db } from './firebase';
 import { User, Post, Message, AppNotification } from '../types';
 
+function ensureArray<T>(val: any): T[] {
+  if (!val) return [];
+  if (Array.isArray(val)) return val.filter(Boolean);
+  if (typeof val === 'object') return Object.values(val).filter(Boolean) as T[];
+  return [];
+}
+
+export function sanitizeUser(u: any): User {
+  if (!u || typeof u !== 'object') return u;
+  return {
+    ...u,
+    followers: ensureArray(u.followers),
+    following: ensureArray(u.following),
+    links: ensureArray(u.links),
+  };
+}
+
+export function sanitizePost(p: any): Post {
+  if (!p || typeof p !== 'object') return p;
+  return {
+    ...p,
+    likes: ensureArray(p.likes),
+    savedBy: ensureArray(p.savedBy),
+    tags: ensureArray(p.tags),
+    comments: ensureArray(p.comments).map((c: any) => ({
+      ...c,
+      likes: ensureArray(c?.likes),
+    })),
+  };
+}
+
 export const firebaseService = {
   // Check connection status
   async checkConnection(): Promise<{ success: boolean; message: string; timestamp: string }> {
@@ -33,8 +64,9 @@ export const firebaseService = {
   // Save / Update User
   async saveUser(user: User): Promise<boolean> {
     try {
+      const sanitized = sanitizeUser(user);
       const userRef = ref(db, `users/${user.id}`);
-      await set(userRef, user);
+      await set(userRef, sanitized);
       return true;
     } catch (err) {
       console.warn('Realtime Database saveUser error:', err);
@@ -49,11 +81,13 @@ export const firebaseService = {
       const snapshot = await get(usersRef);
       if (snapshot.exists()) {
         const val = snapshot.val();
+        let list: any[] = [];
         if (Array.isArray(val)) {
-          return val.filter(Boolean);
+          list = val.filter(Boolean);
         } else if (typeof val === 'object' && val !== null) {
-          return Object.values(val) as User[];
+          list = Object.values(val);
         }
+        return list.map(sanitizeUser);
       }
       return [];
     } catch (err) {
@@ -69,13 +103,13 @@ export const firebaseService = {
       const unsubscribe = onValue(usersRef, (snapshot) => {
         if (snapshot.exists()) {
           const val = snapshot.val();
+          let list: any[] = [];
           if (Array.isArray(val)) {
-            callback(val.filter(Boolean));
+            list = val.filter(Boolean);
           } else if (typeof val === 'object' && val !== null) {
-            callback(Object.values(val) as User[]);
-          } else {
-            callback([]);
+            list = Object.values(val);
           }
+          callback(list.map(sanitizeUser));
         } else {
           callback([]);
         }
@@ -92,8 +126,9 @@ export const firebaseService = {
   // Save Post
   async savePost(post: Post): Promise<boolean> {
     try {
+      const sanitized = sanitizePost(post);
       const postRef = ref(db, `posts/${post.id}`);
-      await set(postRef, post);
+      await set(postRef, sanitized);
       return true;
     } catch (err) {
       console.warn('Realtime Database savePost error:', err);
@@ -120,11 +155,13 @@ export const firebaseService = {
       const snapshot = await get(postsRef);
       if (snapshot.exists()) {
         const val = snapshot.val();
+        let list: any[] = [];
         if (Array.isArray(val)) {
-          return val.filter(Boolean);
+          list = val.filter(Boolean);
         } else if (typeof val === 'object' && val !== null) {
-          return Object.values(val) as Post[];
+          list = Object.values(val);
         }
+        return list.map(sanitizePost);
       }
       return [];
     } catch (err) {
