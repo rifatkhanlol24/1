@@ -29,8 +29,11 @@ service cloud.firestore {
     // Users Collection
     match /users/{userId} {
       allow read: if true;
-      allow create: if isSignedIn() || request.auth.uid == userId;
-      allow update: if isOwner(userId) || isAdmin() || isModerator();
+      allow create: if (isSignedIn() || request.auth.uid == userId) && 
+        (!('role' in request.resource.data) || request.resource.data.role == 'user' || isAdmin());
+      allow update: if (isOwner(userId) || isAdmin() || isModerator()) &&
+        // Regular users cannot escalate their role or tamper with security fields
+        (isAdmin() || !('role' in request.resource.data) || request.resource.data.role == resource.data.role);
       allow delete: if isAdmin();
     }
 

@@ -18,9 +18,8 @@ export const AuthModal: React.FC = () => {
     setIsAuthModalOpen,
     login,
     register,
-    users,
-    switchUser,
     lang,
+    showToast,
   } = useApp();
 
   const [mode, setMode] = useState<'login' | 'register'>('login');
@@ -34,9 +33,48 @@ export const AuthModal: React.FC = () => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (mode === 'login') {
-      login(email.trim());
+      login(email.trim(), password.trim() || undefined);
     } else {
-      register(email.trim(), username.trim(), fullName.trim());
+      const trimmedFullName = fullName.trim();
+      const trimmedUsername = username.trim();
+      const trimmedEmail = email.trim();
+      const trimmedPassword = password.trim();
+
+      if (!trimmedFullName || !trimmedUsername || !trimmedEmail) {
+        showToast(lang === 'bn' ? 'সবগুলো ফিল্ড পূরণ করা আবশ্যক।' : 'Please fill all fields.');
+        return;
+      }
+
+      // Name English-only validation
+      const englishNameRegex = /^[a-zA-Z\s.'-]+$/;
+      const hasBengaliChars = /[\u0980-\u09FF]/;
+
+      if (hasBengaliChars.test(trimmedFullName) || !englishNameRegex.test(trimmedFullName)) {
+        showToast(
+          lang === 'bn'
+            ? 'নাম শুধুমাত্র ইংরেজি অক্ষরে হতে হবে (বাংলা অক্ষর গ্রহণযোগ্য নয়)।'
+            : 'Name must be in English characters only (Bengali characters not allowed).'
+        );
+        return;
+      }
+
+      // Username English-only validation
+      const englishUsernameRegex = /^[a-zA-Z0-9_.-]+$/;
+      if (hasBengaliChars.test(trimmedUsername) || !englishUsernameRegex.test(trimmedUsername)) {
+        showToast(
+          lang === 'bn'
+            ? 'ইউজারনেম শুধুমাত্র ইংরেজি অক্ষরে (a-z, 0-9, _, ., -) হতে হবে।'
+            : 'Username must contain English characters only (a-z, 0-9, _, ., -).'
+        );
+        return;
+      }
+
+      if (trimmedUsername.length < 3) {
+        showToast(lang === 'bn' ? 'ইউজারনেম কমপক্ষে ৩ অক্ষরের হতে হবে।' : 'Username must be at least 3 characters.');
+        return;
+      }
+
+      register(trimmedEmail, trimmedUsername, trimmedFullName, trimmedPassword || undefined);
     }
   };
 

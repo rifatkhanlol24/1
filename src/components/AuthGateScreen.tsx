@@ -37,27 +37,6 @@ export const AuthGateScreen: React.FC = () => {
 
   const [mode, setMode] = useState<'login' | 'register' | 'forgot'>('login');
 
-  // Filter only accounts that are actually logged in on this device (deduplicated)
-  const loggedInAccounts = useMemo(() => {
-    const seenEmails = new Set<string>();
-    const seenUsernames = new Set<string>();
-    const result: typeof users = [];
-
-    for (const uid of loggedInUserIds) {
-      const u = users.find((user) => user.id === uid);
-      if (u && !u.isBot && !u.fullName?.includes('AI Booster')) {
-        const emailKey = (u.email || '').toLowerCase().trim();
-        const usernameKey = (u.username || '').toLowerCase().trim();
-        if (emailKey && seenEmails.has(emailKey)) continue;
-        if (usernameKey && seenUsernames.has(usernameKey)) continue;
-        if (emailKey) seenEmails.add(emailKey);
-        if (usernameKey) seenUsernames.add(usernameKey);
-        result.push(u);
-      }
-    }
-    return result;
-  }, [users, loggedInUserIds]);
-
   // Form Fields
   const [emailOrUsername, setEmailOrUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -90,21 +69,52 @@ export const AuthGateScreen: React.FC = () => {
 
   const handleRegister = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!fullName.trim() || !registerUsername.trim() || !registerEmail.trim() || !registerPassword.trim()) {
+    const trimmedFullName = fullName.trim();
+    const trimmedUsername = registerUsername.trim();
+    const trimmedEmail = registerEmail.trim();
+    const trimmedPassword = registerPassword.trim();
+
+    if (!trimmedFullName || !trimmedUsername || !trimmedEmail || !trimmedPassword) {
       showToast(lang === 'bn' ? 'সবগুলো ফিল্ড পূরণ করা আবশ্যক।' : 'Please fill all fields.');
       return;
     }
-    if (registerUsername.trim().length < 3) {
+
+    // Name English-only validation (A-Z, a-z, spaces, . ' -)
+    const englishNameRegex = /^[a-zA-Z\s.'-]+$/;
+    const hasBengaliChars = /[\u0980-\u09FF]/;
+
+    if (hasBengaliChars.test(trimmedFullName) || !englishNameRegex.test(trimmedFullName)) {
+      showToast(
+        lang === 'bn'
+          ? 'নাম শুধুমাত্র ইংরেজি অক্ষরে হতে হবে (বাংলা অক্ষর গ্রহণযোগ্য নয়)।'
+          : 'Name must be in English characters only (Bengali characters not allowed).'
+      );
+      return;
+    }
+
+    // Username English-only validation (A-Z, a-z, 0-9, _, ., -)
+    const englishUsernameRegex = /^[a-zA-Z0-9_.-]+$/;
+    if (hasBengaliChars.test(trimmedUsername) || !englishUsernameRegex.test(trimmedUsername)) {
+      showToast(
+        lang === 'bn'
+          ? 'ইউজারনেম শুধুমাত্র ইংরেজি অক্ষরে (a-z, 0-9, _, ., -) হতে হবে।'
+          : 'Username must contain English characters only (a-z, 0-9, _, ., -).'
+      );
+      return;
+    }
+
+    if (trimmedUsername.length < 3) {
       showToast(lang === 'bn' ? 'ইউজারনেম কমপক্ষে ৩ অক্ষরের হতে হবে।' : 'Username must be at least 3 characters.');
       return;
     }
+
     setIsLoading(true);
     setTimeout(() => {
       register(
-        registerEmail.trim(),
-        registerUsername.trim(),
-        fullName.trim(),
-        registerPassword.trim()
+        trimmedEmail,
+        trimmedUsername,
+        trimmedFullName,
+        trimmedPassword
       );
       setIsLoading(false);
     }, 400);
@@ -495,58 +505,6 @@ export const AuthGateScreen: React.FC = () => {
                     </button>
                   </div>
                 </form>
-              )}
-
-              {/* Only show accounts that are actually logged in on this device */}
-              {loggedInAccounts.length > 0 && (
-                <div className="pt-4 border-t border-neutral-100 dark:border-neutral-800 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <p className="text-[11px] font-bold text-neutral-400 uppercase tracking-wider">
-                      {lang === 'bn' ? 'লগইনকৃত অ্যাকাউন্ট:' : 'Logged in accounts:'}
-                    </p>
-                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 font-bold">
-                      {loggedInAccounts.length}
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-1 gap-2">
-                    {loggedInAccounts.map((acc) => (
-                      <button
-                        key={acc.id}
-                        type="button"
-                        onClick={() => login(acc.email, acc.password)}
-                        className="flex items-center justify-between p-2.5 rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-800/50 hover:bg-indigo-50/50 dark:hover:bg-neutral-800 transition-all text-left group"
-                      >
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          <img
-                            src={acc.avatar}
-                            alt={acc.fullName}
-                            className="w-8 h-8 rounded-xl object-cover shrink-0 border border-neutral-200 dark:border-neutral-700"
-                          />
-                          <div className="truncate">
-                            <div className="flex items-center gap-1.5">
-                              <span className="font-semibold text-neutral-900 dark:text-neutral-100 text-xs">
-                                {acc.fullName}
-                              </span>
-                              {acc.role === 'admin' && (
-                                <span className="text-[9px] px-1.5 py-0.2 rounded bg-amber-200 dark:bg-amber-800 text-amber-900 dark:text-amber-100 font-extrabold uppercase">
-                                  Admin
-                                </span>
-                              )}
-                            </div>
-                            <p className="text-[10px] text-neutral-400 truncate">
-                              {acc.email}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-1 text-xs text-indigo-600 dark:text-indigo-400 font-semibold shrink-0 ml-1">
-                          <span>{lang === 'bn' ? 'প্রবেশ করুন' : 'Sign in'}</span>
-                          <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
               )}
 
               {/* Security Policy Reminder */}

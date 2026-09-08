@@ -518,10 +518,42 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const register = (email: string, username: string, fullName: string, password?: string): boolean => {
+    const trimmedFullName = fullName.trim();
+    const cleanUsername = username.trim();
+
+    // English-only Full Name validation
+    const englishNameRegex = /^[a-zA-Z\s.'-]+$/;
+    const hasBengaliChars = /[\u0980-\u09FF]/;
+
+    if (hasBengaliChars.test(trimmedFullName) || !englishNameRegex.test(trimmedFullName)) {
+      showToast(
+        lang === 'bn'
+          ? 'নাম শুধুমাত্র ইংরেজি অক্ষরে হতে হবে (বাংলা অক্ষর গ্রহণযোগ্য নয়)।'
+          : 'Name must be in English characters only (Bengali characters not allowed).'
+      );
+      return false;
+    }
+
+    // English-only Username validation
+    const englishUsernameRegex = /^[a-zA-Z0-9_.-]+$/;
+    if (hasBengaliChars.test(cleanUsername) || !englishUsernameRegex.test(cleanUsername)) {
+      showToast(
+        lang === 'bn'
+          ? 'ইউজারনেম শুধুমাত্র ইংরেজি অক্ষরে (a-z, 0-9, _, ., -) হতে হবে।'
+          : 'Username must contain English characters only (a-z, 0-9, _, ., -).'
+      );
+      return false;
+    }
+
+    if (cleanUsername.length < 3) {
+      showToast(lang === 'bn' ? 'ইউজারনেম কমপক্ষে ৩ অক্ষরের হতে হবে।' : 'Username must be at least 3 characters.');
+      return false;
+    }
+
     const exists = users.find(
       (u) =>
         u.email.toLowerCase() === email.toLowerCase() ||
-        u.username.toLowerCase() === username.toLowerCase()
+        u.username.toLowerCase() === cleanUsername.toLowerCase()
     );
     if (exists) {
       showToast(lang === 'bn' ? 'এই ইমেইল অথবা ইউজারনেম ইতোমধ্যে ব্যবহৃত হচ্ছে।' : 'Email or username already in use.');
@@ -531,9 +563,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       id: `user-${Date.now()}`,
       email,
       password: password || 'password123',
-      username: username.toLowerCase().replace(/[^a-zA-Z0-9_]/g, ''),
+      username: cleanUsername,
       usernameChangeCount: 0,
-      fullName: fullName.trim(),
+      fullName: trimmedFullName,
+      fullNameBn: trimmedFullName,
+      fullNameEn: trimmedFullName,
       avatar: `https://images.unsplash.com/photo-${1535713875002 + Math.floor(Math.random() * 100)}?w=400&auto=format&fit=crop&q=80`,
       coverImage: 'https://images.unsplash.com/photo-1579546929518-9e396f3cc809?w=1200&auto=format&fit=crop&q=80',
       bio: 'Excited to connect and share moments here! 🌟',
@@ -547,7 +581,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setUsers((prev) => [newUser, ...prev]);
     setCurrentUserId(newUser.id);
     recordLoggedInUser(newUser.id);
-    showToast(lang === 'bn' ? `স্বাগতম ${fullName}! অ্যাকাউন্ট তৈরি সম্পন্ন।` : `Welcome ${fullName}! Account created.`);
+    showToast(lang === 'bn' ? `স্বাগতম ${trimmedFullName}! অ্যাকাউন্ট তৈরি সম্পন্ন।` : `Welcome ${trimmedFullName}! Account created.`);
     setIsAuthModalOpen(false);
     return true;
   };
@@ -641,6 +675,35 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     let finalData = { ...data };
 
+    // Strip security-critical fields to prevent tampering
+    if (!isFirebaseAdmin || targetId !== currentUser.id) {
+      delete (finalData as any).id;
+      delete (finalData as any).role;
+      delete (finalData as any).isVerified;
+      delete (finalData as any).isVip;
+      delete (finalData as any).isBanned;
+      delete (finalData as any).createdAt;
+    }
+
+    // English-only Full Name validation
+    if (finalData.fullName !== undefined) {
+      const trimmedName = finalData.fullName.trim();
+      const englishNameRegex = /^[a-zA-Z\s.'-]+$/;
+      const hasBengaliChars = /[\u0980-\u09FF]/;
+
+      if (hasBengaliChars.test(trimmedName) || !englishNameRegex.test(trimmedName)) {
+        showToast(
+          lang === 'bn'
+            ? 'নাম শুধুমাত্র ইংরেজি অক্ষরে হতে হবে (বাংলা অক্ষর গ্রহণযোগ্য নয়)।'
+            : 'Name must be in English characters only (Bengali characters not allowed).'
+        );
+        return;
+      }
+      finalData.fullName = trimmedName;
+      finalData.fullNameBn = trimmedName;
+      finalData.fullNameEn = trimmedName;
+    }
+
     // Check if username is being changed
     if (
       finalData.username &&
@@ -655,9 +718,19 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         );
         return;
       }
-      const cleanUsername = finalData.username
-        .toLowerCase()
-        .replace(/[^a-zA-Z0-9_]/g, '');
+      const cleanUsername = finalData.username.trim();
+      const englishUsernameRegex = /^[a-zA-Z0-9_.-]+$/;
+      const hasBengaliChars = /[\u0980-\u09FF]/;
+
+      if (hasBengaliChars.test(cleanUsername) || !englishUsernameRegex.test(cleanUsername)) {
+        showToast(
+          lang === 'bn'
+            ? 'ইউজারনেম শুধুমাত্র ইংরেজি অক্ষরে (a-z, 0-9, _, ., -) হতে হবে।'
+            : 'Username must contain English characters only (a-z, 0-9, _, ., -).'
+        );
+        return;
+      }
+
       if (cleanUsername.length < 3) {
         showToast(
           lang === 'bn' ? 'ইউজারনেম কমপক্ষে ৩ অক্ষরের হতে হবে।' : 'Username must be at least 3 characters.'
@@ -665,7 +738,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         return;
       }
       const isTaken = users.some(
-        (u) => u.id !== targetId && u.username.toLowerCase() === cleanUsername
+        (u) => u.id !== targetId && u.username.toLowerCase() === cleanUsername.toLowerCase()
       );
       if (isTaken) {
         showToast(

@@ -15,6 +15,12 @@
       ".read": true,
       "$userId": {
         ".write": "auth != null && (auth.uid === $userId || auth.uid === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3')",
+        "fullName": {
+          ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 70 && newData.val().matches(/^[a-zA-Z0-9 .'-]+$/) && !newData.val().matches(/[\\u0980-\\u09FF]/)"
+        },
+        "username": {
+          ".validate": "newData.isString() && newData.val().length >= 3 && newData.val().length <= 30 && newData.val().matches(/^[a-zA-Z0-9_.-]+$/) && !newData.val().matches(/[\\u0980-\\u09FF]/)"
+        },
         "role": {
           ".write": "auth != null && auth.uid === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3'",
           ".validate": "newData.isString() && (newData.val() === 'user' || newData.val() === 'moderator' || (newData.val() === 'admin' && auth.uid === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3'))"

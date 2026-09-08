@@ -148,9 +148,46 @@ export const ProfileView: React.FC = () => {
 
   const handleSaveProfile = (e: React.FormEvent) => {
     e.preventDefault();
+    const trimmedFullName = editName.trim();
+    const trimmedUsername = editUsername.trim();
+
+    if (!trimmedFullName || !trimmedUsername) {
+      showToast(lang === 'bn' ? 'নাম ও ইউজারনেম ফিল্ড খালি রাখা যাবে না।' : 'Name and username cannot be empty.');
+      return;
+    }
+
+    // Name English-only validation (A-Z, a-z, spaces, . ' -)
+    const englishNameRegex = /^[a-zA-Z\s.'-]+$/;
+    const hasBengaliChars = /[\u0980-\u09FF]/;
+
+    if (hasBengaliChars.test(trimmedFullName) || !englishNameRegex.test(trimmedFullName)) {
+      showToast(
+        lang === 'bn'
+          ? 'নাম শুধুমাত্র ইংরেজি অক্ষরে হতে হবে (বাংলা অক্ষর গ্রহণযোগ্য নয়)।'
+          : 'Name must be in English characters only (Bengali characters not allowed).'
+      );
+      return;
+    }
+
+    // Username English-only validation (A-Z, a-z, 0-9, _, ., -)
+    const englishUsernameRegex = /^[a-zA-Z0-9_.-]+$/;
+    if (hasBengaliChars.test(trimmedUsername) || !englishUsernameRegex.test(trimmedUsername)) {
+      showToast(
+        lang === 'bn'
+          ? 'ইউজারনেম শুধুমাত্র ইংরেজি অক্ষরে (a-z, 0-9, _, ., -) হতে হবে।'
+          : 'Username must contain English characters only (a-z, 0-9, _, ., -).'
+      );
+      return;
+    }
+
+    if (trimmedUsername.length < 3) {
+      showToast(lang === 'bn' ? 'ইউজারনেম কমপক্ষে ৩ অক্ষরের হতে হবে।' : 'Username must be at least 3 characters.');
+      return;
+    }
+
     updateProfile({
-      username: editUsername.trim(),
-      fullName: editName.trim(),
+      username: trimmedUsername,
+      fullName: trimmedFullName,
       bio: editBio.trim(),
       location: editLocation.trim(),
       website: editWebsite.trim(),
