@@ -98,19 +98,74 @@ export interface Post {
 export interface Message {
   id: string;
   conversationId: string;
+  chatId?: string;
   senderId: string;
+  senderUid?: string;
   receiverId: string;
+  receiverUid?: string;
   text: string;
   imageUrl?: string;
   createdAt: string;
   isRead: boolean;
+  seen?: boolean;
+  delivered?: boolean;
+  type?: 'text' | 'image';
+  deletedFor?: Record<string, boolean>;
 }
 
 export interface Conversation {
   id: string;
   participantIds: string[];
+  participants?: Record<string, boolean>;
+  participant1?: string;
+  participant2?: string;
   lastMessage?: Message;
+  lastMessageAt?: string;
+  lastSenderId?: string;
+  unreadCounts?: Record<string, number>;
+  deletedBy?: Record<string, boolean>;
   updatedAt: string;
+}
+
+export type CallType = 'audio' | 'video';
+export type CallStatus = 'ringing' | 'accepted' | 'rejected' | 'ended' | 'missed';
+
+export interface CallSession {
+  callId: string;
+  callerUid: string;
+  receiverUid: string;
+  callerName: string;
+  callerAvatar: string;
+  receiverName: string;
+  receiverAvatar: string;
+  callType: CallType;
+  status: CallStatus;
+  offer?: any;
+  answer?: any;
+  createdAt: string;
+  acceptedAt?: string;
+  endedAt?: string;
+  duration?: number;
+}
+
+export interface CallHistoryItem {
+  id?: string;
+  callId: string;
+  callerUid: string;
+  callerName: string;
+  callerAvatar: string;
+  receiverUid: string;
+  receiverName: string;
+  receiverAvatar: string;
+  callType: CallType;
+  status: CallStatus;
+  duration: number;
+  createdAt: string;
+}
+
+export interface UserPresence {
+  online: boolean;
+  lastSeen?: string;
 }
 
 export type NotificationType = 'like' | 'comment' | 'follow' | 'message' | 'system' | 'share';

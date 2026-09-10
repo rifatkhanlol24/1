@@ -22,10 +22,13 @@ import {
   Key,
   Mail,
   UserCheck,
+  Phone,
+  Video,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { PostCard } from './PostCard';
 import { ProfileLink } from '../types';
+import { UsernameChangeTracker } from './UsernameChangeTracker';
 
 export const ProfileView: React.FC = () => {
   const {
@@ -36,6 +39,8 @@ export const ProfileView: React.FC = () => {
     updateProfile,
     toggleFollow,
     startOrOpenChatWithUser,
+    startCall,
+    userPresenceMap,
     changeEmailAndPassword,
     requestVerification,
     verificationRequests,
@@ -190,6 +195,20 @@ export const ProfileView: React.FC = () => {
       return;
     }
 
+    // Check if username is being changed and strictly enforce the 10-time limit
+    const isChangingUsername = trimmedUsername.toLowerCase() !== (profileUser.username || '').toLowerCase();
+    const currentUsernameChangeCount = profileUser.usernameChangeCount || 0;
+    const maxUsernameChanges = 10;
+
+    if (isChangingUsername && currentUsernameChangeCount >= maxUsernameChanges && !isAdmin) {
+      showToast(
+        lang === 'bn'
+          ? `আপনি ইতিমধ্যে ${maxUsernameChanges} বার ইউজারনেম পরিবর্তন করেছেন। আর পরিবর্তন করা সম্ভব নয়!`
+          : `You have already changed your username ${maxUsernameChanges} times. Maximum limit reached!`
+      );
+      return;
+    }
+
     updateProfile({
       username: trimmedUsername,
       fullName: trimmedFullName,
@@ -335,11 +354,34 @@ export const ProfileView: React.FC = () => {
                   </button>
 
                   <button
+                    id="profile-send-message-btn"
                     onClick={() => startOrOpenChatWithUser(profileUser.id)}
                     className="flex items-center gap-1.5 px-4 py-2 rounded-xl border border-neutral-300 dark:border-neutral-700 text-xs font-semibold text-neutral-800 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors shadow-sm"
                   >
                     <MessageCircle className="w-3.5 h-3.5 text-indigo-500" />
                     <span>{lang === 'bn' ? 'মেসেজ পাঠান' : 'Message'}</span>
+                  </button>
+
+                  {/* Audio Call */}
+                  <button
+                    id="profile-audio-call-btn"
+                    onClick={() => startCall(profileUser, 'audio')}
+                    className="flex items-center gap-1.5 px-3 sm:px-3.5 py-2 rounded-xl border border-emerald-300 dark:border-emerald-800/60 bg-emerald-50/50 dark:bg-emerald-950/30 text-xs font-semibold text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-colors shadow-sm"
+                    title={lang === 'bn' ? 'অডিও কল করুন' : 'Audio Call'}
+                  >
+                    <Phone className="w-3.5 h-3.5 text-emerald-500" />
+                    <span className="hidden sm:inline">{lang === 'bn' ? 'অডিও' : 'Audio'}</span>
+                  </button>
+
+                  {/* Video Call */}
+                  <button
+                    id="profile-video-call-btn"
+                    onClick={() => startCall(profileUser, 'video')}
+                    className="flex items-center gap-1.5 px-3 sm:px-3.5 py-2 rounded-xl border border-indigo-300 dark:border-indigo-800/60 bg-indigo-50/50 dark:bg-indigo-950/30 text-xs font-semibold text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-colors shadow-sm"
+                    title={lang === 'bn' ? 'ভিডিও কল করুন' : 'Video Call'}
+                  >
+                    <Video className="w-3.5 h-3.5 text-indigo-500" />
+                    <span className="hidden sm:inline">{lang === 'bn' ? 'ভিডিও' : 'Video'}</span>
                   </button>
                 </>
               )}
@@ -968,37 +1010,43 @@ export const ProfileView: React.FC = () => {
                 </div>
               </div>
 
-              {/* Username with 10-time Change Limit */}
-              <div className="p-3 rounded-2xl bg-neutral-50 dark:bg-neutral-800/60 border border-neutral-200 dark:border-neutral-700 space-y-1">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold text-neutral-800 dark:text-neutral-200">
-                    {lang === 'bn' ? 'ইউজারনেম (Username):' : 'Username:'}
-                  </label>
-                  <span className="text-[11px] font-semibold text-indigo-600 dark:text-indigo-400">
-                    {lang === 'bn'
-                      ? `পরিবর্তন হয়েছে: ${profileUser.usernameChangeCount || 0} / ১০ বার`
-                      : `Changed: ${profileUser.usernameChangeCount || 0} / 10 times`}
-                  </span>
-                </div>
-                <input
-                  type="text"
-                  value={editUsername}
-                  onChange={(e) => setEditUsername(e.target.value)}
-                  disabled={(profileUser.usernameChangeCount || 0) >= 10 && !isAdmin}
-                  className="w-full text-xs p-2.5 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100 disabled:opacity-60 disabled:cursor-not-allowed"
-                  required
+              {/* Username with 10-time Change Limit Tracker */}
+              <div className="space-y-2">
+                <UsernameChangeTracker
+                  changeCount={profileUser.usernameChangeCount || 0}
+                  maxLimit={10}
+                  isAdmin={isAdmin}
+                  lang={lang}
+                  isPendingChange={
+                    editUsername.trim().toLowerCase() !== (profileUser.username || '').toLowerCase()
+                  }
                 />
-                {(profileUser.usernameChangeCount || 0) >= 10 && !isAdmin ? (
-                  <p className="text-[11px] text-rose-500 font-medium">
-                    ⚠️ {lang === 'bn' ? '১০ বার ইউজারনেম পরিবর্তনের সর্বোচ্চ সীমা অতিক্রম করেছেন।' : 'Maximum 10 username change limit reached.'}
-                  </p>
-                ) : (
-                  <p className="text-[10px] text-neutral-400">
-                    {lang === 'bn'
-                      ? `বাকি আছে: ${10 - (profileUser.usernameChangeCount || 0)} বার পরিবর্তন করা যাবে।`
-                      : `Remaining: ${10 - (profileUser.usernameChangeCount || 0)} changes remaining.`}
-                  </p>
-                )}
+
+                <div className="p-3 rounded-2xl bg-neutral-50 dark:bg-neutral-800/60 border border-neutral-200 dark:border-neutral-700 space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <label htmlFor="edit-username-input" className="text-xs font-bold text-neutral-800 dark:text-neutral-200">
+                      {lang === 'bn' ? 'ইউজারনেম (Username):' : 'Username:'}
+                    </label>
+                    <span className="text-[10px] text-neutral-500 dark:text-neutral-400">
+                      {lang === 'bn' ? 'ইংরেজি অক্ষর, সংখ্যা ও _ . -' : 'Letters, numbers, _ . - only'}
+                    </span>
+                  </div>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-neutral-400">
+                      @
+                    </span>
+                    <input
+                      id="edit-username-input"
+                      type="text"
+                      value={editUsername}
+                      onChange={(e) => setEditUsername(e.target.value)}
+                      disabled={(profileUser.usernameChangeCount || 0) >= 10 && !isAdmin}
+                      className="w-full text-xs pl-7 pr-3 py-2.5 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100 disabled:opacity-60 disabled:cursor-not-allowed focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all"
+                      placeholder="username"
+                      required
+                    />
+                  </div>
+                </div>
               </div>
 
               {/* Full Name */}

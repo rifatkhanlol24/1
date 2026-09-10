@@ -5,6 +5,7 @@ import {
   Smile,
   Search,
   CheckCheck,
+  Check,
   Circle,
   ArrowLeft,
   Sparkles,
@@ -13,10 +14,15 @@ import {
   UserPlus,
   MessageSquare,
   X,
+  MoreVertical,
+  Trash2,
+  Ban,
+  ShieldCheck,
+  Clock,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { User } from '../types';
-import { CallModal } from './CallModal';
+import { firebaseService } from '../lib/firebaseService';
 
 export const ChatView: React.FC = () => {
   const {
@@ -28,6 +34,16 @@ export const ChatView: React.FC = () => {
     setActiveConversationId,
     startOrOpenChatWithUser,
     sendMessage,
+    deleteChatMessage,
+    deleteConversation,
+    setChatTyping,
+    markChatSeen,
+    userPresenceMap,
+    blockedUserIds,
+    blockUser,
+    unblockUser,
+    isUserBlocked,
+    startCall,
     lang,
     showToast,
   } = useApp();
@@ -36,7 +52,9 @@ export const ChatView: React.FC = () => {
   const [chatSearch, setChatSearch] = useState('');
   const [chatImage, setChatImage] = useState<string | null>(null);
   const [isMobileListOpen, setIsMobileListOpen] = useState(!activeConversationId);
-  const [activeCall, setActiveCall] = useState<{ type: 'audio' | 'video'; user: User } | null>(null);
+  const [typingUsers, setTypingUsers] = useState<Record<string, boolean>>({});
+  const [showMenu, setShowMenu] = useState(false);
+  const typingTimerRef = useRef<any>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -64,6 +82,29 @@ export const ChatView: React.FC = () => {
     activeConv?.participantIds.find((id) => id !== currentUser?.id) || currentUser?.id;
   const otherUser = users.find((u) => u.id === otherParticipantId);
 
+  // Real-time typing subscription and mark as seen
+  useEffect(() => {
+    if (!activeConversationId) return;
+    markChatSeen(activeConversationId);
+
+    const unsubTyping = firebaseService.subscribeTyping(activeConversationId, (data) => {
+      setTypingUsers(data);
+    });
+
+    return () => {
+      unsubTyping();
+    };
+  }, [activeConversationId]);
+
+  // Check if the other user is typing
+  const isOtherTyping = Boolean(otherParticipantId && typingUsers[otherParticipantId]);
+
+  // Real-time presence for other user
+  const otherPresence = otherParticipantId ? userPresenceMap[otherParticipantId] : null;
+
+  // Check blocked status
+  const isBlocked = Boolean(otherParticipantId && isUserBlocked(otherParticipantId));
+
   // Conversation messages
   const convMessages = messages.filter(
     (m) => m.conversationId === activeConversationId
@@ -72,13 +113,33 @@ export const ChatView: React.FC = () => {
   // Scroll to bottom on new message
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [convMessages.length, activeConversationId]);
+  }, [convMessages.length, activeConversationId, isOtherTyping]);
+
+  // Handle Input text change with real-time typing broadcast
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setInputMessage(val);
+
+    if (activeConversationId) {
+      setChatTyping(activeConversationId, true);
+      if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
+      typingTimerRef.current = setTimeout(() => {
+        if (activeConversationId) {
+          setChatTyping(activeConversationId, false);
+        }
+      }, 2500);
+    }
+  };
 
   // Handle Send
   const handleSend = (e: React.FormEvent) => {
     e.preventDefault();
     const targetId = otherParticipantId || currentUser?.id;
     if (!targetId || (!inputMessage.trim() && !chatImage)) return;
+
+    if (activeConversationId) {
+      setChatTyping(activeConversationId, false);
+    }
 
     sendMessage(targetId, inputMessage.trim(), chatImage || undefined);
     setInputMessage('');
@@ -361,6 +422,8 @@ export const ChatView: React.FC = () => {
                     const lastMsg = conv.lastMessage;
                     const hasUnread =
                       lastMsg && lastMsg.receiverId === currentUser?.id && !lastMsg.isRead;
+                    const isContactOnline = Boolean(userPresenceMap[contact.id]?.online);
+                    const isContactTyping = Boolean(typingUsers[contact.id] && isSelected);
 
                     return (
                       <div
@@ -384,7 +447,11 @@ export const ChatView: React.FC = () => {
                             alt={contact.fullName}
                             className="w-11 h-11 rounded-full object-cover border border-neutral-200 dark:border-neutral-700"
                           />
-                          <Circle className="w-3 h-3 fill-emerald-500 text-emerald-500 absolute bottom-0 right-0" />
+                          {isContactOnline ? (
+                            <Circle className="w-3 h-3 fill-emerald-500 text-emerald-500 absolute bottom-0 right-0" />
+                          ) : (
+                            <span className="w-2.5 h-2.5 rounded-full bg-neutral-400 dark:bg-neutral-600 border-2 border-white dark:border-neutral-900 absolute bottom-0 right-0" />
+                          )}
                         </div>
 
                         <div className="flex-1 min-w-0">
@@ -403,12 +470,16 @@ export const ChatView: React.FC = () => {
                           </div>
                           <p
                             className={`text-xs truncate mt-0.5 ${
-                              hasUnread
+                              isContactTyping
+                                ? 'text-indigo-600 dark:text-indigo-400 italic font-medium'
+                                : hasUnread
                                 ? 'font-bold text-neutral-900 dark:text-neutral-100'
                                 : 'text-neutral-500 dark:text-neutral-400'
                             }`}
                           >
-                            {lastMsg ? lastMsg.text : 'Start chatting...'}
+                            {isContactTyping
+                              ? lang === 'bn' ? 'টাইপ করছেন...' : 'typing...'
+                              : lastMsg ? lastMsg.text : 'Start chatting...'}
                           </p>
                         </div>
 
@@ -507,7 +578,11 @@ export const ChatView: React.FC = () => {
                     alt={otherUser.fullName}
                     className="w-9 h-9 sm:w-10 sm:h-10 rounded-full object-cover border border-neutral-200 dark:border-neutral-700"
                   />
-                  <Circle className="w-2.5 h-2.5 fill-emerald-500 text-emerald-500 absolute bottom-0 right-0" />
+                  {otherPresence?.online ? (
+                    <Circle className="w-2.5 h-2.5 fill-emerald-500 text-emerald-500 absolute bottom-0 right-0" />
+                  ) : (
+                    <span className="w-2.5 h-2.5 rounded-full bg-neutral-400 dark:bg-neutral-600 border-2 border-white dark:border-neutral-900 absolute bottom-0 right-0" />
+                  )}
                 </div>
 
                 <div className="min-w-0 flex-1">
@@ -520,18 +595,39 @@ export const ChatView: React.FC = () => {
                       <span className="text-[10px] px-1.5 py-0.2 rounded bg-amber-100 text-amber-800 font-bold shrink-0">VIP</span>
                     )}
                   </h3>
-                  <p className="text-[10px] sm:text-[11px] text-emerald-600 dark:text-emerald-400 flex items-center gap-1 truncate">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block shrink-0" />
-                    <span className="truncate">Online • @{otherUser.username}</span>
+                  <p className="text-[10px] sm:text-[11px] text-neutral-500 dark:text-neutral-400 flex items-center gap-1 truncate">
+                    {otherPresence?.online ? (
+                      <>
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block shrink-0" />
+                        <span className="text-emerald-600 dark:text-emerald-400 font-medium">
+                          {lang === 'bn' ? 'অনলাইনে আছেন' : 'Online'}
+                        </span>
+                      </>
+                    ) : otherPresence?.lastSeen ? (
+                      <>
+                        <span className="w-1.5 h-1.5 rounded-full bg-neutral-400 inline-block shrink-0" />
+                        <span>
+                          {lang === 'bn'
+                            ? `সক্রিয় ছিলেন ${new Date(otherPresence.lastSeen).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+                            : `Active ${new Date(otherPresence.lastSeen).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`}
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="w-1.5 h-1.5 rounded-full bg-neutral-400 inline-block shrink-0" />
+                        <span>{lang === 'bn' ? 'অফলাইন' : 'Offline'}</span>
+                      </>
+                    )}
+                    <span>• @{otherUser.username}</span>
                   </p>
                 </div>
               </div>
 
-              {/* Prominent Audio Call & Video Call Buttons */}
+              {/* Prominent Audio Call & Video Call Buttons + Options Menu */}
               <div className="flex items-center gap-1 sm:gap-2 shrink-0">
                 <button
                   id="chat-audio-call-btn"
-                  onClick={() => setActiveCall({ type: 'audio', user: otherUser })}
+                  onClick={() => startCall(otherUser, 'audio')}
                   className="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs active:scale-95 transition-all"
                   title={lang === 'bn' ? 'অডিও কল শুরু করুন' : 'Start Audio Call'}
                 >
@@ -541,13 +637,65 @@ export const ChatView: React.FC = () => {
 
                 <button
                   id="chat-video-call-btn"
-                  onClick={() => setActiveCall({ type: 'video', user: otherUser })}
+                  onClick={() => startCall(otherUser, 'video')}
                   className="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-xs active:scale-95 transition-all"
                   title={lang === 'bn' ? 'ভিডিও কল শুরু করুন' : 'Start Video Call'}
                 >
                   <Video className="w-3.5 h-3.5" />
                   <span className="text-[11px] font-bold">{lang === 'bn' ? 'ভিডিও' : 'Video'}</span>
                 </button>
+
+                {/* Options Dropdown */}
+                <div className="relative">
+                  <button
+                    onClick={() => setShowMenu((prev) => !prev)}
+                    className="p-1.5 rounded-xl hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-500 transition-colors"
+                    title="Chat Options"
+                  >
+                    <MoreVertical className="w-4 h-4" />
+                  </button>
+
+                  {showMenu && (
+                    <div className="absolute right-0 top-full mt-1.5 w-44 bg-white dark:bg-neutral-800 rounded-2xl shadow-xl border border-neutral-200 dark:border-neutral-700 py-1.5 z-30 text-xs">
+                      {isBlocked ? (
+                        <button
+                          onClick={() => {
+                            unblockUser(otherUser.id);
+                            setShowMenu(false);
+                          }}
+                          className="w-full px-3 py-2 text-left hover:bg-neutral-100 dark:hover:bg-neutral-700 flex items-center gap-2 text-emerald-600 dark:text-emerald-400 font-semibold"
+                        >
+                          <ShieldCheck className="w-3.5 h-3.5" />
+                          <span>{lang === 'bn' ? 'আনব্লক করুন' : 'Unblock User'}</span>
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => {
+                            blockUser(otherUser.id);
+                            setShowMenu(false);
+                          }}
+                          className="w-full px-3 py-2 text-left hover:bg-neutral-100 dark:hover:bg-neutral-700 flex items-center gap-2 text-red-600 dark:text-red-400 font-semibold"
+                        >
+                          <Ban className="w-3.5 h-3.5" />
+                          <span>{lang === 'bn' ? 'ব্লক করুন' : 'Block User'}</span>
+                        </button>
+                      )}
+
+                      <button
+                        onClick={() => {
+                          if (activeConversationId) {
+                            deleteConversation(activeConversationId);
+                            setShowMenu(false);
+                          }
+                        }}
+                        className="w-full px-3 py-2 text-left hover:bg-neutral-100 dark:hover:bg-neutral-700 flex items-center gap-2 text-neutral-700 dark:text-neutral-300 font-semibold"
+                      >
+                        <Trash2 className="w-3.5 h-3.5 text-neutral-500" />
+                        <span>{lang === 'bn' ? 'চ্যাট মুছুন' : 'Delete Chat'}</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -581,32 +729,51 @@ export const ChatView: React.FC = () => {
               ) : (
                 convMessages.map((msg) => {
                   const isMe = msg.senderId === currentUser?.id;
+                  const isSeen = msg.seen || msg.isRead;
+
                   return (
                     <div
                       key={msg.id}
-                      className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}
+                      className={`flex flex-col group ${isMe ? 'items-end' : 'items-start'}`}
                     >
-                      <div
-                        className={`max-w-[85%] sm:max-w-[70%] rounded-2xl p-3 shadow-xs ${
-                          isMe
-                            ? 'bg-indigo-600 text-white rounded-br-xs'
-                            : 'bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 rounded-bl-xs border border-neutral-200 dark:border-neutral-700'
-                        }`}
-                      >
-                        {msg.imageUrl && (
-                          <div className="mb-2 rounded-xl overflow-hidden max-h-60 bg-neutral-900">
-                            <img
-                              src={msg.imageUrl}
-                              alt="Attachment"
-                              className="w-full h-full object-contain"
-                            />
-                          </div>
+                      <div className="relative flex items-center gap-1 max-w-[85%] sm:max-w-[70%]">
+                        {isMe && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (activeConversationId) {
+                                deleteChatMessage(activeConversationId, msg.id, true);
+                              }
+                            }}
+                            className="opacity-0 group-hover:opacity-100 p-1 text-neutral-400 hover:text-red-500 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-opacity"
+                            title={lang === 'bn' ? 'মেসেজ মুছুন' : 'Delete message'}
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
                         )}
-                        {msg.text && (
-                          <p className="text-xs leading-relaxed break-words whitespace-pre-wrap">
-                            {msg.text}
-                          </p>
-                        )}
+
+                        <div
+                          className={`rounded-2xl p-3 shadow-xs ${
+                            isMe
+                              ? 'bg-indigo-600 text-white rounded-br-xs'
+                              : 'bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 rounded-bl-xs border border-neutral-200 dark:border-neutral-700'
+                          }`}
+                        >
+                          {msg.imageUrl && (
+                            <div className="mb-2 rounded-xl overflow-hidden max-h-60 bg-neutral-900">
+                              <img
+                                src={msg.imageUrl}
+                                alt="Attachment"
+                                className="w-full h-full object-contain"
+                              />
+                            </div>
+                          )}
+                          {msg.text && (
+                            <p className="text-xs leading-relaxed break-words whitespace-pre-wrap">
+                              {msg.text}
+                            </p>
+                          )}
+                        </div>
                       </div>
 
                       <div className="flex items-center gap-1 mt-1 text-[10px] text-neutral-400 px-1">
@@ -617,17 +784,37 @@ export const ChatView: React.FC = () => {
                           })}
                         </span>
                         {isMe && (
-                          <CheckCheck
-                            className={`w-3 h-3 ${
-                              msg.isRead ? 'text-indigo-600 dark:text-indigo-400' : 'text-neutral-400'
-                            }`}
-                          />
+                          isSeen ? (
+                            <span title={lang === 'bn' ? 'দেখা হয়েছে' : 'Seen'} className="flex items-center text-indigo-600 dark:text-indigo-400 font-semibold">
+                              <CheckCheck className="w-3.5 h-3.5" />
+                              <span className="text-[9px] ml-0.5">{lang === 'bn' ? 'দেখা হয়েছে' : 'Seen'}</span>
+                            </span>
+                          ) : (
+                            <span title={lang === 'bn' ? 'পাঠানো হয়েছে' : 'Sent'} className="text-neutral-400">
+                              <Check className="w-3.5 h-3.5" />
+                            </span>
+                          )
                         )}
                       </div>
                     </div>
                   );
                 })
               )}
+
+              {/* Real-time typing bubble */}
+              {isOtherTyping && (
+                <div className="flex items-center gap-2 px-3 py-2 max-w-[200px] rounded-2xl bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 shadow-xs">
+                  <div className="flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-bounce" />
+                    <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-bounce [animation-delay:0.2s]" />
+                    <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-bounce [animation-delay:0.4s]" />
+                  </div>
+                  <span className="text-[11px] text-neutral-500 dark:text-neutral-400 italic font-medium truncate">
+                    {lang === 'bn' ? `${otherUser.fullName} লিখছেন...` : 'typing...'}
+                  </span>
+                </div>
+              )}
+
               <div ref={messagesEndRef} />
             </div>
 
@@ -678,64 +865,84 @@ export const ChatView: React.FC = () => {
               ))}
             </div>
 
-            {/* MESSAGE INPUT & SEND FORM - Sleek, Compact & Responsive */}
-            <form
-              onSubmit={handleSend}
-              className="p-2 sm:p-2.5 border-t border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 flex items-center gap-1.5"
-            >
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                onChange={handleAttachImage}
-                className="hidden"
-              />
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="p-1.5 text-neutral-500 hover:text-indigo-600 dark:hover:text-indigo-400 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors shrink-0"
-                title="Attach image"
+            {/* MESSAGE INPUT & SEND FORM OR BLOCKED NOTICE */}
+            {isBlocked ? (
+              <div className="p-3 sm:p-4 bg-red-50 dark:bg-red-950/40 border-t border-red-200 dark:border-red-900 flex items-center justify-between text-xs text-red-700 dark:text-red-300">
+                <div className="flex items-center gap-2">
+                  <Ban className="w-4 h-4 text-red-500 shrink-0" />
+                  <span className="font-medium">
+                    {lang === 'bn'
+                      ? 'আপনি এই ব্যবহারকারীকে ব্লক করেছেন। মেসেজ পাঠাতে আনব্লক করুন।'
+                      : 'You have blocked this contact. Unblock to send messages.'}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => unblockUser(otherParticipantId)}
+                  className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold transition-all shadow-xs shrink-0"
+                >
+                  {lang === 'bn' ? 'আনব্লক করুন' : 'Unblock'}
+                </button>
+              </div>
+            ) : (
+              <form
+                onSubmit={handleSend}
+                className="p-2 sm:p-2.5 border-t border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 flex items-center gap-1.5"
               >
-                <ImageIcon className="w-4 h-4 sm:w-5 sm:h-5" />
-              </button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleAttachImage}
+                  className="hidden"
+                />
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="p-1.5 text-neutral-500 hover:text-indigo-600 dark:hover:text-indigo-400 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors shrink-0"
+                  title="Attach image"
+                >
+                  <ImageIcon className="w-4 h-4 sm:w-5 sm:h-5" />
+                </button>
 
-              <button
-                type="button"
-                onClick={() => {
-                  setInputMessage((prev) => prev + ' 😊');
-                  messageInputRef.current?.focus();
-                }}
-                className="p-1.5 text-neutral-500 hover:text-indigo-600 dark:hover:text-indigo-400 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors shrink-0"
-                title="Add emoji"
-              >
-                <Smile className="w-4 h-4 sm:w-5 sm:h-5" />
-              </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setInputMessage((prev) => prev + ' 😊');
+                    messageInputRef.current?.focus();
+                  }}
+                  className="p-1.5 text-neutral-500 hover:text-indigo-600 dark:hover:text-indigo-400 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors shrink-0"
+                  title="Add emoji"
+                >
+                  <Smile className="w-4 h-4 sm:w-5 sm:h-5" />
+                </button>
 
-              <input
-                ref={messageInputRef}
-                type="text"
-                value={inputMessage}
-                onChange={(e) => setInputMessage(e.target.value)}
-                placeholder={
-                  lang === 'bn' ? 'মেসেজ লিখুন...' : 'Type a message...'
-                }
-                className="flex-1 min-w-0 px-3 py-1.5 text-xs rounded-xl bg-neutral-100 dark:bg-neutral-800 border border-transparent focus:border-indigo-500 text-neutral-900 dark:text-neutral-100 outline-none"
-              />
+                <input
+                  ref={messageInputRef}
+                  type="text"
+                  value={inputMessage}
+                  onChange={handleInputChange}
+                  placeholder={
+                    lang === 'bn' ? 'মেসেজ লিখুন...' : 'Type a message...'
+                  }
+                  className="flex-1 min-w-0 px-3 py-1.5 text-xs rounded-xl bg-neutral-100 dark:bg-neutral-800 border border-transparent focus:border-indigo-500 text-neutral-900 dark:text-neutral-100 outline-none"
+                />
 
-              {/* Prominent Send Message Button */}
-              <button
-                id="send-message-btn"
-                type="submit"
-                disabled={!inputMessage.trim() && !chatImage}
-                className="flex items-center gap-1.5 px-3 sm:px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs disabled:opacity-40 transition-all shadow-sm shadow-indigo-500/20 active:scale-95 shrink-0"
-                title="Send Message"
-              >
-                <Send className="w-3.5 h-3.5" />
-                <span>
-                  {lang === 'bn' ? 'সেন্ড' : 'Send'}
-                </span>
-              </button>
-            </form>
+                {/* Prominent Send Message Button */}
+                <button
+                  id="send-message-btn"
+                  type="submit"
+                  disabled={!inputMessage.trim() && !chatImage}
+                  className="flex items-center gap-1.5 px-3 sm:px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs disabled:opacity-40 transition-all shadow-sm shadow-indigo-500/20 active:scale-95 shrink-0"
+                  title="Send Message"
+                >
+                  <Send className="w-3.5 h-3.5" />
+                  <span>
+                    {lang === 'bn' ? 'সেন্ড' : 'Send'}
+                  </span>
+                </button>
+              </form>
+            )}
           </>
         ) : (
           /* Empty Chat Placeholder with Direct Actions */
@@ -780,16 +987,6 @@ export const ChatView: React.FC = () => {
           </div>
         )}
       </div>
-
-      {/* Interactive Audio & Video Call Modal */}
-      {activeCall && (
-        <CallModal
-          type={activeCall.type}
-          user={activeCall.user}
-          onClose={() => setActiveCall(null)}
-          lang={lang}
-        />
-      )}
     </div>
   );
 };

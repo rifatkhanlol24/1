@@ -134,17 +134,76 @@
     },
 
     "messages": {
-      "$messageId": {
-        ".read": "auth != null && (data.child('senderId').val() === auth.uid || data.child('receiverId').val() === auth.uid || auth.uid === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3')",
-        ".write": "auth != null && (auth.uid === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3' || (!data.exists() && newData.child('senderId').val() === auth.uid) || (data.exists() && (data.child('senderId').val() === auth.uid || auth.uid === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3')))",
-        ".validate": "newData.hasChildren(['senderId', 'receiverId']) && (auth.uid === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3' || (!data.exists() && newData.child('senderId').val() === auth.uid) || (data.exists() && (!newData.exists() || newData.child('senderId').val() === data.child('senderId').val())))"
+      "$chatId": {
+        "$messageId": {
+          ".read": "auth != null && (data.child('senderUid').val() === auth.uid || data.child('receiverUid').val() === auth.uid || data.child('senderId').val() === auth.uid || data.child('receiverId').val() === auth.uid || root.child('chats/' + $chatId + '/participants/' + auth.uid).val() === true || root.child('chats/' + $chatId + '/participant1').val() === auth.uid || root.child('chats/' + $chatId + '/participant2').val() === auth.uid || auth.uid === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3')",
+          ".write": "auth != null && (auth.uid === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3' || (!data.exists() && (newData.child('senderUid').val() === auth.uid || newData.child('senderId').val() === auth.uid)) || (data.exists() && (data.child('senderUid').val() === auth.uid || data.child('senderId').val() === auth.uid || data.child('receiverUid').val() === auth.uid || data.child('receiverId').val() === auth.uid || auth.uid === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3')))"
+        }
+      }
+    },
+
+    "chats": {
+      "$chatId": {
+        ".read": "auth != null && (data.child('participants/' + auth.uid).val() === true || data.child('participant1').val() === auth.uid || data.child('participant2').val() === auth.uid || auth.uid === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3')",
+        ".write": "auth != null && (auth.uid === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3' || (!data.exists() && (newData.child('participants/' + auth.uid).val() === true || newData.child('participant1').val() === auth.uid || newData.child('participant2').val() === auth.uid)) || (data.exists() && (data.child('participants/' + auth.uid).val() === true || data.child('participant1').val() === auth.uid || data.child('participant2').val() === auth.uid || auth.uid === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3')))"
+      }
+    },
+
+    "presence": {
+      "$userId": {
+        ".read": "auth != null",
+        ".write": "auth != null && (auth.uid === $userId || auth.uid === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3')"
+      }
+    },
+
+    "typing": {
+      "$chatId": {
+        "$userId": {
+          ".read": "auth != null",
+          ".write": "auth != null && (auth.uid === $userId || auth.uid === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3')"
+        }
+      }
+    },
+
+    "blocks": {
+      "$userId": {
+        ".read": "auth != null && (auth.uid === $userId || auth.uid === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3')",
+        ".write": "auth != null && (auth.uid === $userId || auth.uid === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3')"
+      }
+    },
+
+    "calls": {
+      ".read": "auth != null",
+      "$callId": {
+        ".read": "auth != null && (data.child('callerUid').val() === auth.uid || data.child('receiverUid').val() === auth.uid || auth.uid === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3')",
+        ".write": "auth != null && (auth.uid === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3' || (!data.exists() && newData.child('callerUid').val() === auth.uid) || (data.exists() && (data.child('callerUid').val() === auth.uid || data.child('receiverUid').val() === auth.uid || auth.uid === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3')))"
+      }
+    },
+
+    "callCandidates": {
+      "$callId": {
+        "caller": {
+          ".read": "auth != null && (root.child('calls/' + $callId + '/callerUid').val() === auth.uid || root.child('calls/' + $callId + '/receiverUid').val() === auth.uid || auth.uid === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3')",
+          ".write": "auth != null && (root.child('calls/' + $callId + '/callerUid').val() === auth.uid || auth.uid === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3')"
+        },
+        "receiver": {
+          ".read": "auth != null && (root.child('calls/' + $callId + '/callerUid').val() === auth.uid || root.child('calls/' + $callId + '/receiverUid').val() === auth.uid || auth.uid === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3')",
+          ".write": "auth != null && (root.child('calls/' + $callId + '/receiverUid').val() === auth.uid || auth.uid === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3')"
+        }
+      }
+    },
+
+    "callHistory": {
+      "$userId": {
+        ".read": "auth != null && (auth.uid === $userId || auth.uid === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3')",
+        ".write": "auth != null && (auth.uid === $userId || auth.uid === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3')"
       }
     },
 
     "conversations": {
       "$conversationId": {
-        ".read": "auth != null && (data.child('participant1').val() === auth.uid || data.child('participant2').val() === auth.uid || auth.uid === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3')",
-        ".write": "auth != null && (auth.uid === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3' || (!data.exists() && (newData.child('participant1').val() === auth.uid || newData.child('participant2').val() === auth.uid)) || (data.exists() && (data.child('participant1').val() === auth.uid || data.child('participant2').val() === auth.uid || auth.uid === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3')))"
+        ".read": "auth != null && (data.child('participant1').val() === auth.uid || data.child('participant2').val() === auth.uid || data.child('participants/' + auth.uid).val() === true || auth.uid === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3')",
+        ".write": "auth != null && (auth.uid === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3' || (!data.exists() && (newData.child('participant1').val() === auth.uid || newData.child('participant2').val() === auth.uid || newData.child('participants/' + auth.uid).val() === true)) || (data.exists() && (data.child('participant1').val() === auth.uid || data.child('participant2').val() === auth.uid || data.child('participants/' + auth.uid).val() === true || auth.uid === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3')))"
       }
     },
 

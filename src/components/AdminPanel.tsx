@@ -33,6 +33,7 @@ import {
 import { useApp } from '../context/AppContext';
 import { UserRole, User, Post } from '../types';
 import { FirebaseConsole } from './FirebaseConsole';
+import { UsernameChangeTracker } from './UsernameChangeTracker';
 import { getAuth, signOut } from 'firebase/auth';
 import { app } from '../lib/firebase';
 
@@ -1449,6 +1450,18 @@ export const AdminPanel: React.FC = () => {
                     onChange={(e) => setEditUserUsername(e.target.value)}
                     className="w-full text-xs p-2.5 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100"
                     required
+                  />
+                </div>
+
+                <div>
+                  <UsernameChangeTracker
+                    changeCount={Number(editUserChangeCount) || 0}
+                    maxLimit={10}
+                    isAdmin={false}
+                    lang={lang}
+                    isPendingChange={
+                      editUserUsername.trim().toLowerCase() !== (editingUser.username || '').toLowerCase()
+                    }
                   />
                 </div>
 

@@ -7,16 +7,23 @@ import {
   onValue,
   query,
   limitToFirst,
+  limitToLast,
+  push,
+  onDisconnect,
   Unsubscribe,
 } from 'firebase/database';
 import { rtdb } from './firebase';
-import { User, Post, Message, AppNotification } from '../types';
+import { User, Post, Message, Conversation, AppNotification } from '../types';
 
 // Realtime Database Paths
 const USERS_PATH = 'users';
 const POSTS_PATH = 'posts';
 const MESSAGES_PATH = 'messages';
+const CHATS_PATH = 'chats';
 const NOTIFS_PATH = 'notifications';
+const PRESENCE_PATH = 'presence';
+const TYPING_PATH = 'typing';
+const BLOCKS_PATH = 'blocks';
 
 // Helper to remove undefined properties which RTDB rejects
 function sanitizeObject<T extends Record<string, any>>(obj: T): T {
@@ -301,10 +308,447 @@ export const firebaseService = {
     );
   },
 
-  // Save Message
+  // Save/Update Conversation in RTDB (chats/{chatId})
+  async saveConversation(conv: Conversation): Promise<boolean> {
+    try {
+      const convRef = ref(rtdb, `${CHATS_PATH}/${conv.id}`);
+      const payload: Record<string, any> = {
+        id: conv.id,
+        participantIds: conv.participantIds,
+        updatedAt: conv.updatedAt || new Date().toISOString(),
+      };
+
+      if (conv.participantIds && conv.participantIds.length >= 2) {
+        payload.participant1 = conv.participantIds[0];
+        payload.participant2 = conv.participantIds[1];
+        payload.participants = {
+          [conv.participantIds[0]]: true,
+          [conv.participantIds[1]]: true,
+        };
+      }
+
+      if (conv.lastMessage) {
+        payload.lastMessage = conv.lastMessage;
+        payload.lastMessageAt = conv.lastMessage.createdAt || new Date().toISOString();
+        payload.lastSenderId = conv.lastMessage.senderId;
+      }
+      if (conv.unreadCounts) {
+        payload.unreadCounts = conv.unreadCounts;
+      }
+      if (conv.deletedBy) {
+        payload.deletedBy = conv.deletedBy;
+      }
+
+      await update(convRef, sanitizeObject(payload));
+      return true;
+    } catch (err) {
+      console.warn('RTDB saveConversation error:', err);
+      return false;
+    }
+  },
+
+  // Subscribe to user's Conversations
+  subscribeConversations(
+    currentUid: string,
+    callback: (conversations: Conversation[]) => void
+  ): Unsubscribe {
+    const chatsRef = ref(rtdb, CHATS_PATH);
+    return onValue(
+      chatsRef,
+      (snapshot) => {
+        if (snapshot.exists()) {
+          const data = snapshot.val();
+          const list: Conversation[] = Object.keys(data)
+            .map((key) => {
+              const c = data[key];
+              const pIds: string[] =
+                c.participantIds ||
+                (c.participants ? Object.keys(c.participants) : [c.participant1, c.participant2].filter(Boolean));
+              return {
+                id: key,
+                participantIds: pIds,
+                participants: c.participants,
+                participant1: c.participant1,
+                participant2: c.participant2,
+                lastMessage: c.lastMessage,
+                lastMessageAt: c.lastMessageAt,
+                lastSenderId: c.lastSenderId,
+                unreadCounts: c.unreadCounts || {},
+                deletedBy: c.deletedBy || {},
+                updatedAt: c.updatedAt || c.lastMessageAt || new Date().toISOString(),
+              } as Conversation;
+            })
+            .filter((c) => {
+              // Filter only conversations for current user that aren't deleted for this user
+              const isParticipant =
+                c.participantIds?.includes(currentUid) ||
+                c.participant1 === currentUid ||
+                c.participant2 === currentUid ||
+                c.participants?.[currentUid] === true;
+              const isDeleted = c.deletedBy && c.deletedBy[currentUid] === true;
+              return isParticipant && !isDeleted;
+            });
+
+          list.sort(
+            (a, b) =>
+              new Date(b.updatedAt || b.lastMessageAt || 0).getTime() -
+              new Date(a.updatedAt || a.lastMessageAt || 0).getTime()
+          );
+          callback(list);
+        } else {
+          callback([]);
+        }
+      },
+      (err) => {
+        console.warn('RTDB subscribeConversations error:', err);
+      }
+    );
+  },
+
+  // Subscribe to real-time messages in a specific chat
+  subscribeMessages(
+    chatId: string,
+    callback: (messages: Message[]) => void
+  ): Unsubscribe {
+    const messagesQuery = query(ref(rtdb, `${MESSAGES_PATH}/${chatId}`), limitToLast(150));
+    return onValue(
+      messagesQuery,
+      (snapshot) => {
+        if (snapshot.exists()) {
+          const data = snapshot.val();
+          const list: Message[] = Object.keys(data).map((key) => {
+            const m = data[key];
+            return {
+              id: key,
+              conversationId: chatId,
+              chatId,
+              senderId: m.senderId || m.senderUid,
+              senderUid: m.senderUid || m.senderId,
+              receiverId: m.receiverId || m.receiverUid,
+              receiverUid: m.receiverUid || m.receiverId,
+              text: m.text || '',
+              imageUrl: m.imageUrl,
+              createdAt: m.createdAt,
+              isRead: m.isRead || m.seen || false,
+              seen: m.seen || m.isRead || false,
+              delivered: m.delivered ?? true,
+              type: m.type || (m.imageUrl ? 'image' : 'text'),
+              deletedFor: m.deletedFor || {},
+            } as Message;
+          });
+          list.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+          callback(list);
+        } else {
+          callback([]);
+        }
+      },
+      (err) => {
+        console.warn('RTDB subscribeMessages error:', err);
+      }
+    );
+  },
+
+  // Send real-time Chat Message and update conversation lastMessage & unread count
+  async sendChatMessage(
+    chatId: string,
+    msg: Message,
+    senderUser?: User,
+    receiverUser?: User
+  ): Promise<boolean> {
+    try {
+      const msgRef = ref(rtdb, `${MESSAGES_PATH}/${chatId}/${msg.id}`);
+      const payload = {
+        id: msg.id,
+        conversationId: chatId,
+        chatId,
+        senderId: msg.senderId,
+        senderUid: msg.senderId,
+        receiverId: msg.receiverId,
+        receiverUid: msg.receiverId,
+        text: msg.text || '',
+        imageUrl: msg.imageUrl || '',
+        createdAt: msg.createdAt || new Date().toISOString(),
+        isRead: false,
+        seen: false,
+        delivered: true,
+        type: msg.type || (msg.imageUrl ? 'image' : 'text'),
+      };
+      await set(msgRef, sanitizeObject(payload));
+
+      // Update the chat node
+      const chatRef = ref(rtdb, `${CHATS_PATH}/${chatId}`);
+      const chatSnap = await get(chatRef);
+      let currentUnread = 0;
+      let existingDeletedBy: Record<string, boolean> = {};
+
+      if (chatSnap.exists()) {
+        const val = chatSnap.val();
+        currentUnread = (val.unreadCounts && val.unreadCounts[msg.receiverId]) || 0;
+        existingDeletedBy = val.deletedBy || {};
+      }
+
+      // If receiver had deleted the conversation, revive it upon new message
+      delete existingDeletedBy[msg.receiverId];
+      delete existingDeletedBy[msg.senderId];
+
+      const chatUpdate: Record<string, any> = {
+        id: chatId,
+        participantIds: [msg.senderId, msg.receiverId],
+        participant1: msg.senderId,
+        participant2: msg.receiverId,
+        participants: {
+          [msg.senderId]: true,
+          [msg.receiverId]: true,
+        },
+        lastMessage: payload,
+        lastMessageAt: payload.createdAt,
+        lastSenderId: msg.senderId,
+        updatedAt: payload.createdAt,
+        [`unreadCounts/${msg.receiverId}`]: currentUnread + 1,
+        [`unreadCounts/${msg.senderId}`]: 0,
+        deletedBy: existingDeletedBy,
+      };
+
+      await update(chatRef, sanitizeObject(chatUpdate));
+
+      // Also trigger a notification for the recipient
+      if (senderUser) {
+        const notifId = `notif_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+        firebaseService.saveNotification({
+          id: notifId,
+          userId: msg.receiverId,
+          actorId: senderUser.id,
+          actorName: senderUser.fullName || senderUser.name || 'Friend',
+          actorUsername: senderUser.username || '',
+          actorAvatar: senderUser.avatar || senderUser.profileImage || '',
+          type: 'message',
+          text: msg.text ? `Sent you a message: "${msg.text.slice(0, 45)}"` : 'Sent you a photo',
+          isRead: false,
+          createdAt: payload.createdAt,
+        }).catch(() => {});
+      }
+
+      return true;
+    } catch (err) {
+      console.warn('RTDB sendChatMessage error:', err);
+      return false;
+    }
+  },
+
+  // Mark all incoming messages in a chat as seen
+  async markMessagesSeen(chatId: string, currentUid: string): Promise<boolean> {
+    try {
+      const messagesRef = ref(rtdb, `${MESSAGES_PATH}/${chatId}`);
+      const snapshot = await get(messagesRef);
+
+      if (snapshot.exists()) {
+        const data = snapshot.val();
+        const updates: Record<string, any> = {};
+
+        Object.keys(data).forEach((key) => {
+          const m = data[key];
+          if ((m.receiverId === currentUid || m.receiverUid === currentUid) && (!m.seen || !m.isRead)) {
+            updates[`${key}/seen`] = true;
+            updates[`${key}/isRead`] = true;
+          }
+        });
+
+        if (Object.keys(updates).length > 0) {
+          await update(messagesRef, updates);
+        }
+      }
+
+      // Reset unread count for current user
+      const unreadRef = ref(rtdb, `${CHATS_PATH}/${chatId}/unreadCounts/${currentUid}`);
+      await set(unreadRef, 0).catch(() => {});
+
+      return true;
+    } catch (err) {
+      console.warn('RTDB markMessagesSeen error:', err);
+      return false;
+    }
+  },
+
+  // Delete message (either for self or for everyone)
+  async deleteMessage(
+    chatId: string,
+    messageId: string,
+    forUid: string,
+    deleteForEveryone: boolean = false
+  ): Promise<boolean> {
+    try {
+      const msgRef = ref(rtdb, `${MESSAGES_PATH}/${chatId}/${messageId}`);
+      if (deleteForEveryone) {
+        await update(msgRef, {
+          text: 'This message was deleted',
+          imageUrl: null,
+          isDeletedForEveryone: true,
+        });
+      } else {
+        await update(msgRef, {
+          [`deletedFor/${forUid}`]: true,
+        });
+      }
+      return true;
+    } catch (err) {
+      console.warn('RTDB deleteMessage error:', err);
+      return false;
+    }
+  },
+
+  // Delete conversation for a user
+  async deleteConversation(chatId: string, forUid: string): Promise<boolean> {
+    try {
+      const chatRef = ref(rtdb, `${CHATS_PATH}/${chatId}/deletedBy/${forUid}`);
+      await set(chatRef, true);
+      return true;
+    } catch (err) {
+      console.warn('RTDB deleteConversation error:', err);
+      return false;
+    }
+  },
+
+  // Typing status management
+  async setTypingStatus(chatId: string, uid: string, isTyping: boolean): Promise<void> {
+    try {
+      const typingRef = ref(rtdb, `${TYPING_PATH}/${chatId}/${uid}`);
+      if (isTyping) {
+        await set(typingRef, true);
+      } else {
+        await remove(typingRef);
+      }
+    } catch (err) {
+      // Non-blocking typing update
+    }
+  },
+
+  // Subscribe to typing indicators in a chat
+  subscribeTyping(
+    chatId: string,
+    callback: (typingUsers: Record<string, boolean>) => void
+  ): Unsubscribe {
+    const typingRef = ref(rtdb, `${TYPING_PATH}/${chatId}`);
+    return onValue(
+      typingRef,
+      (snapshot) => {
+        if (snapshot.exists()) {
+          callback(snapshot.val() || {});
+        } else {
+          callback({});
+        }
+      },
+      (err) => {
+        console.warn('RTDB subscribeTyping error:', err);
+      }
+    );
+  },
+
+  // Presence Tracking with Firebase Realtime Database .info/connected
+  setupPresenceTracking(uid: string): () => void {
+    try {
+      const connectedRef = ref(rtdb, '.info/connected');
+      const userPresenceRef = ref(rtdb, `${PRESENCE_PATH}/${uid}`);
+
+      const unsub = onValue(connectedRef, (snap) => {
+        if (snap.val() === true) {
+          // When this client disconnects, set online to false and record timestamp
+          onDisconnect(userPresenceRef)
+            .set({
+              online: false,
+              lastSeen: new Date().toISOString(),
+            })
+            .catch(() => {});
+
+          // Mark current user as online
+          set(userPresenceRef, {
+            online: true,
+            lastSeen: new Date().toISOString(),
+          }).catch(() => {});
+        }
+      });
+
+      return () => {
+        unsub();
+        set(userPresenceRef, {
+          online: false,
+          lastSeen: new Date().toISOString(),
+        }).catch(() => {});
+      };
+    } catch (err) {
+      console.warn('RTDB setupPresenceTracking error:', err);
+      return () => {};
+    }
+  },
+
+  // Subscribe to presence for all users
+  subscribeAllPresence(
+    callback: (presenceMap: Record<string, { online: boolean; lastSeen?: string }>) => void
+  ): Unsubscribe {
+    const presenceRef = ref(rtdb, PRESENCE_PATH);
+    return onValue(
+      presenceRef,
+      (snapshot) => {
+        if (snapshot.exists()) {
+          callback(snapshot.val() || {});
+        } else {
+          callback({});
+        }
+      },
+      (err) => {
+        console.warn('RTDB subscribeAllPresence error:', err);
+      }
+    );
+  },
+
+  // Block User
+  async blockUser(currentUid: string, targetUid: string): Promise<boolean> {
+    try {
+      const blockRef = ref(rtdb, `${BLOCKS_PATH}/${currentUid}/${targetUid}`);
+      await set(blockRef, true);
+      return true;
+    } catch (err) {
+      console.warn('RTDB blockUser error:', err);
+      return false;
+    }
+  },
+
+  // Unblock User
+  async unblockUser(currentUid: string, targetUid: string): Promise<boolean> {
+    try {
+      const blockRef = ref(rtdb, `${BLOCKS_PATH}/${currentUid}/${targetUid}`);
+      await remove(blockRef);
+      return true;
+    } catch (err) {
+      console.warn('RTDB unblockUser error:', err);
+      return false;
+    }
+  },
+
+  // Subscribe to list of blocked users
+  subscribeBlockedUsers(
+    currentUid: string,
+    callback: (blockedIds: string[]) => void
+  ): Unsubscribe {
+    const blocksRef = ref(rtdb, `${BLOCKS_PATH}/${currentUid}`);
+    return onValue(
+      blocksRef,
+      (snapshot) => {
+        if (snapshot.exists()) {
+          callback(Object.keys(snapshot.val() || {}));
+        } else {
+          callback([]);
+        }
+      },
+      (err) => {
+        console.warn('RTDB subscribeBlockedUsers error:', err);
+      }
+    );
+  },
+
+  // Legacy Save Message
   async saveMessage(msg: Message): Promise<boolean> {
     try {
-      const msgRef = ref(rtdb, `${MESSAGES_PATH}/${msg.id}`);
+      const msgRef = ref(rtdb, `${MESSAGES_PATH}/${msg.conversationId || 'default'}/${msg.id}`);
       await update(msgRef, sanitizeObject(msg));
       return true;
     } catch (err) {

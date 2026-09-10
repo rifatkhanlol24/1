@@ -11,6 +11,10 @@ import {
   UserRole,
   VerificationRequest,
   ProfileLink,
+  CallSession,
+  CallHistoryItem,
+  CallType,
+  CallStatus,
 } from '../types';
 import {
   INITIAL_USERS,
@@ -32,6 +36,7 @@ import {
 } from 'firebase/auth';
 import { app, auth } from '../lib/firebase';
 import { firebaseService } from '../lib/firebaseService';
+import { webrtcService, soundFx } from '../lib/webrtcService';
 
 export type NavigationTab =
   | 'feed'
@@ -94,6 +99,32 @@ interface AppContextType {
   setActiveConversationId: (id: string | null) => void;
   sendMessage: (receiverId: string, text: string, imageUrl?: string) => void;
   startOrOpenChatWithUser: (targetUserId: string) => void;
+  deleteChatMessage: (chatId: string, messageId: string, forEveryone?: boolean) => Promise<void>;
+  deleteConversation: (chatId: string) => Promise<void>;
+  setChatTyping: (chatId: string, isTyping: boolean) => Promise<void>;
+  markChatSeen: (chatId: string) => Promise<void>;
+
+  // Real-time Presence & Blocking
+  userPresenceMap: Record<string, { online: boolean; lastSeen?: string }>;
+  blockedUserIds: string[];
+  blockUser: (targetUserId: string) => Promise<void>;
+  unblockUser: (targetUserId: string) => Promise<void>;
+  isUserBlocked: (targetUserId: string) => boolean;
+
+  // WebRTC Audio & Video Calling
+  activeCall: {
+    callId: string;
+    type: CallType;
+    role: 'caller' | 'receiver';
+    otherUser: User;
+    session: CallSession;
+  } | null;
+  incomingCall: CallSession | null;
+  callHistory: CallHistoryItem[];
+  startCall: (targetUser: User, type: CallType) => Promise<string | null>;
+  acceptIncomingCall: () => void;
+  rejectIncomingCall: () => void;
+  endActiveCall: () => void;
 
   // Notifications & Push
   notifications: AppNotification[];
@@ -383,6 +414,39 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     return () => unsub();
   }, [currentUserId]);
 
+  // Presence setup & tracking
+  useEffect(() => {
+    if (!currentUserId) return;
+    const cleanupPresence = firebaseService.setupPresenceTracking(currentUserId);
+    const unsubPresence = firebaseService.subscribeAllPresence((map) => {
+      setUserPresenceMap(map);
+    });
+    return () => {
+      cleanupPresence();
+      unsubPresence();
+    };
+  }, [currentUserId]);
+
+  // Blocked users subscription
+  useEffect(() => {
+    if (!currentUserId) return;
+    const unsubBlocks = firebaseService.subscribeBlockedUsers(currentUserId, (ids) => {
+      setBlockedUserIds(ids);
+    });
+    return () => unsubBlocks();
+  }, [currentUserId]);
+
+  // Real-time conversations subscription
+  useEffect(() => {
+    if (!currentUserId) return;
+    const unsubChats = firebaseService.subscribeConversations(currentUserId, (rtdbConvs) => {
+      if (rtdbConvs && rtdbConvs.length > 0) {
+        setConversations(rtdbConvs);
+      }
+    });
+    return () => unsubChats();
+  }, [currentUserId]);
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       // Authoritative Single Admin check: UID must strictly match UI28ofvzB7cjNJvCG0DvYgbCu9J3
@@ -431,6 +495,23 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     return saved ? JSON.parse(saved) : INITIAL_NOTIFICATIONS;
   });
 
+  // Real-time Presence & Blocking
+  const [userPresenceMap, setUserPresenceMap] = useState<
+    Record<string, { online: boolean; lastSeen?: string }>
+  >({});
+  const [blockedUserIds, setBlockedUserIds] = useState<string[]>([]);
+
+  // WebRTC Audio & Video Call States
+  const [activeCall, setActiveCall] = useState<{
+    callId: string;
+    type: CallType;
+    role: 'caller' | 'receiver';
+    otherUser: User;
+    session: CallSession;
+  } | null>(null);
+  const [incomingCall, setIncomingCall] = useState<CallSession | null>(null);
+  const [callHistory, setCallHistory] = useState<CallHistoryItem[]>([]);
+
   const [darkMode, setDarkMode] = useState<boolean>(() => {
     const saved = localStorage.getItem('vc_dark_mode');
     if (saved !== null) return saved === 'true';
@@ -457,6 +538,54 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [selectedUserProfileId, setSelectedUserProfileId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
+
+  // WebRTC Incoming Call listener
+  useEffect(() => {
+    if (!currentUserId) return;
+    const unsubCall = webrtcService.subscribeIncomingCalls(currentUserId, (call) => {
+      if (call && (!activeCall || activeCall.callId !== call.callId)) {
+        setIncomingCall(call);
+        soundFx.startIncomingRingtone();
+      } else if (!call) {
+        setIncomingCall(null);
+      }
+    });
+    return () => unsubCall();
+  }, [currentUserId, activeCall]);
+
+  // Call history subscription
+  useEffect(() => {
+    if (!currentUserId) return;
+    const unsubHistory = webrtcService.subscribeCallHistory(currentUserId, (hist) => {
+      setCallHistory(hist);
+    });
+    return () => unsubHistory();
+  }, [currentUserId]);
+
+  // Real-time messages for active conversation
+  useEffect(() => {
+    if (!activeConversationId) return;
+    const unsubMsgs = firebaseService.subscribeMessages(activeConversationId, (rtdbMsgs) => {
+      if (rtdbMsgs && rtdbMsgs.length > 0) {
+        setMessages((prev) => {
+          const map = new Map<string, Message>();
+          prev.forEach((m) => {
+            if (m.conversationId !== activeConversationId && m.chatId !== activeConversationId) {
+              map.set(m.id, m);
+            }
+          });
+          rtdbMsgs.forEach((m) => map.set(m.id, m));
+          return Array.from(map.values());
+        });
+      }
+    });
+
+    if (currentUserId) {
+      firebaseService.markMessagesSeen(activeConversationId, currentUserId).catch(() => {});
+    }
+
+    return () => unsubMsgs();
+  }, [activeConversationId, currentUserId]);
 
   // Total 1M Users Platform & Real-Time Active Users
   const totalCommunityUsers = 1000000;
@@ -1029,6 +1158,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       delete (finalData as any).isVip;
       delete (finalData as any).isBanned;
       delete (finalData as any).createdAt;
+      delete (finalData as any).usernameChangeCount;
     }
 
     // English-only Full Name validation (A-Z, a-z and spaces only - no numbers or special chars)
@@ -1056,52 +1186,56 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       finalData.fullNameEn = trimmedName;
     }
 
-    // Check if username is being changed
-    if (
-      finalData.username &&
-      finalData.username.toLowerCase() !== targetUser.username.toLowerCase()
-    ) {
-      const currentCount = targetUser.usernameChangeCount || 0;
-      if (currentCount >= 10 && !isFirebaseAdmin) {
-        showToast(
-          lang === 'bn'
-            ? 'ইতিমধ্যে ১০ বার ইউজারনেম পরিবর্তন করা হয়েছে। আর পরিবর্তন করা সম্ভব নয়!'
-            : 'Username has already been changed 10 times. Maximum limit reached!'
-        );
-        return;
-      }
+    // Check if username is being changed and enforce limit strictly
+    if (finalData.username !== undefined) {
       const cleanUsername = finalData.username.trim();
-      const englishUsernameRegex = /^[a-zA-Z0-9_.-]+$/;
-      const hasBengaliChars = /[\u0980-\u09FF]/;
+      const isChanging = cleanUsername.toLowerCase() !== targetUser.username.trim().toLowerCase();
 
-      if (hasBengaliChars.test(cleanUsername) || !englishUsernameRegex.test(cleanUsername)) {
-        showToast(
-          lang === 'bn'
-            ? 'ইউজারনেম শুধুমাত্র ইংরেজি অক্ষরে (a-z, 0-9, _, ., -) হতে হবে।'
-            : 'Username must contain English characters only (a-z, 0-9, _, ., -).'
-        );
-        return;
-      }
+      if (isChanging) {
+        const currentCount = targetUser.usernameChangeCount || 0;
+        const maxLimit = 10;
+        if (currentCount >= maxLimit && !isFirebaseAdmin) {
+          showToast(
+            lang === 'bn'
+              ? `ইউজারনেম পরিবর্তনের সর্বোচ্চ সীমা (${maxLimit} বার) শেষ হয়ে গেছে। আর পরিবর্তন করা সম্ভব নয়!`
+              : `Username has already been changed ${maxLimit} times. Maximum limit reached!`
+          );
+          return;
+        }
+        const englishUsernameRegex = /^[a-zA-Z0-9_.-]+$/;
+        const hasBengaliChars = /[\u0980-\u09FF]/;
 
-      if (cleanUsername.length < 3) {
-        showToast(
-          lang === 'bn' ? 'ইউজারনেম কমপক্ষে ৩ অক্ষরের হতে হবে।' : 'Username must be at least 3 characters.'
-        );
-        return;
-      }
-      const isTaken = users.some(
-        (u) => u.id !== targetId && u.username.toLowerCase() === cleanUsername.toLowerCase()
-      );
-      if (isTaken) {
-        showToast(
-          lang === 'bn' ? 'এই ইউজারনেমটি ইতিমধ্যে অন্য কেউ ব্যবহার করছেন।' : 'This username is already taken.'
-        );
-        return;
-      }
+        if (hasBengaliChars.test(cleanUsername) || !englishUsernameRegex.test(cleanUsername)) {
+          showToast(
+            lang === 'bn'
+              ? 'ইউজারনেম শুধুমাত্র ইংরেজি অক্ষরে (a-z, 0-9, _, ., -) হতে হবে।'
+              : 'Username must contain English characters only (a-z, 0-9, _, ., -).'
+          );
+          return;
+        }
 
-      finalData.username = cleanUsername;
-      if (!isFirebaseAdmin) {
-        finalData.usernameChangeCount = currentCount + 1;
+        if (cleanUsername.length < 3 || cleanUsername.length > 30) {
+          showToast(
+            lang === 'bn' ? 'ইউজারনেম ৩ থেকে ৩০ অক্ষরের মধ্যে হতে হবে।' : 'Username must be between 3 and 30 characters.'
+          );
+          return;
+        }
+        const isTaken = users.some(
+          (u) => u.id !== targetId && u.username.toLowerCase() === cleanUsername.toLowerCase()
+        );
+        if (isTaken) {
+          showToast(
+            lang === 'bn' ? 'এই ইউজারনেমটি ইতিমধ্যে অন্য কেউ ব্যবহার করছেন।' : 'This username is already taken.'
+          );
+          return;
+        }
+
+        finalData.username = cleanUsername;
+        if (!isFirebaseAdmin) {
+          finalData.usernameChangeCount = currentCount + 1;
+        }
+      } else {
+        finalData.username = targetUser.username;
       }
     }
 
@@ -1483,6 +1617,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const sendMessage = (receiverId: string, text: string, imageUrl?: string) => {
     if (!currentUser || (!text.trim() && !imageUrl)) return;
 
+    if (isUserBlocked(receiverId)) {
+      showToast(
+        lang === 'bn'
+          ? 'এই ব্যবহারকারী ব্লক থাকায় মেসেজ পাঠানো সম্ভব নয়'
+          : 'Cannot send message to blocked user'
+      );
+      return;
+    }
+
     // Find or create conversation
     let conv = conversations.find(
       (c) =>
@@ -1494,14 +1637,20 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const convId = conv ? conv.id : `conv-${Date.now()}`;
 
     const newMsg: Message = {
-      id: `msg-${Date.now()}`,
+      id: `msg-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       conversationId: convId,
+      chatId: convId,
       senderId: currentUser.id,
+      senderUid: currentUser.id,
       receiverId,
+      receiverUid: receiverId,
       text: text.trim(),
       imageUrl,
       createdAt: now,
       isRead: false,
+      seen: false,
+      delivered: true,
+      type: imageUrl ? 'image' : 'text',
     };
 
     if (!conv) {
@@ -1524,7 +1673,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     setMessages((prev) => [...prev, newMsg]);
 
-    // Send push notification to recipient
+    // Send via Firebase Realtime Database
+    const recipient = users.find((u) => u.id === receiverId);
+    firebaseService.sendChatMessage(convId, newMsg, currentUser, recipient).catch((err) => {
+      console.warn('Firebase RTDB chat send fallback:', err);
+    });
+
+    // Send in-app notification to recipient
     sendInAppNotification({
       userId: receiverId,
       actorId: currentUser.id,
@@ -1532,12 +1687,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       actorUsername: currentUser.username,
       actorAvatar: currentUser.avatar,
       type: 'message',
-      text: text.slice(0, 45) || 'Sent an image attachment',
+      text: text.slice(0, 45) || 'Sent an attachment',
     });
 
-    // Simulate smart interactive reply after 2.5s if talking with other demo accounts
-    const recipient = users.find((u) => u.id === receiverId);
-    if (recipient && receiverId !== currentUser.id) {
+    // Simulated interactive reply for demo accounts if testing with mock bots
+    if (recipient && receiverId.startsWith('user-') && receiverId !== currentUser.id && receiverId !== 'user-admin') {
       setTimeout(() => {
         const replies = [
           lang === 'bn'
@@ -1547,8 +1701,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             ? 'দারুণ আইডিয়া! আমি এই বিষয়ে পুরোপুরি একমত 🚀'
             : 'Awesome idea! I completely agree with you on this 🚀',
           lang === 'bn'
-            ? 'হ্যাঁ, অ্যাপের রিয়েল-টাইম এডিটিং এবং স্পিড সত্যিই চমকপ্রদ!'
-            : 'Yeah, the real-time editing and speed on this platform is truly amazing!',
+            ? 'হ্যাঁ, অ্যাপের রিয়েল-টাইম চ্যাট ও কল ফিচার সত্যিই দারুণ কাজ করছে!'
+            : 'Yeah, the real-time chat & WebRTC calling features work wonderfully!',
         ];
         const replyText = replies[Math.floor(Math.random() * replies.length)];
         const replyTime = new Date().toISOString();
@@ -1556,11 +1710,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         const replyMsg: Message = {
           id: `msg-reply-${Date.now()}`,
           conversationId: convId,
+          chatId: convId,
           senderId: receiverId,
+          senderUid: receiverId,
           receiverId: currentUser.id,
+          receiverUid: currentUser.id,
           text: replyText,
           createdAt: replyTime,
           isRead: false,
+          seen: false,
+          delivered: true,
+          type: 'text',
         };
 
         setMessages((prev) => [...prev, replyMsg]);
@@ -1606,6 +1766,165 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       setActiveConversationId(newConvId);
     }
     setActiveTab('messages');
+  };
+
+  const deleteChatMessage = async (chatId: string, messageId: string, forEveryone: boolean = false) => {
+    if (!currentUser) return;
+    try {
+      await firebaseService.deleteMessage(chatId, messageId, currentUser.id, forEveryone);
+      setMessages((prev) => prev.filter((m) => m.id !== messageId));
+      showToast(lang === 'bn' ? 'মেসেজ ডিলিট করা হয়েছে' : 'Message deleted');
+    } catch (err) {
+      console.error('Delete message failed:', err);
+    }
+  };
+
+  const deleteConversation = async (chatId: string) => {
+    if (!currentUser) return;
+    try {
+      await firebaseService.deleteConversation(chatId, currentUser.id);
+      setConversations((prev) => prev.filter((c) => c.id !== chatId));
+      setMessages((prev) => prev.filter((m) => m.conversationId !== chatId && m.chatId !== chatId));
+      if (activeConversationId === chatId) {
+        setActiveConversationId(null);
+      }
+      showToast(lang === 'bn' ? 'কথোপকথন ডিলিট করা হয়েছে' : 'Conversation deleted');
+    } catch (err) {
+      console.error('Delete conversation error:', err);
+    }
+  };
+
+  const setChatTyping = async (chatId: string, isTyping: boolean) => {
+    if (!currentUser) return;
+    await firebaseService.setTypingStatus(chatId, currentUser.id, isTyping);
+  };
+
+  const markChatSeen = async (chatId: string) => {
+    if (!currentUser) return;
+    await firebaseService.markMessagesSeen(chatId, currentUser.id);
+  };
+
+  const blockUser = async (targetUserId: string) => {
+    if (!currentUser) return;
+    try {
+      await firebaseService.blockUser(currentUser.id, targetUserId);
+      setBlockedUserIds((prev) => [...prev, targetUserId]);
+      showToast(lang === 'bn' ? 'ইউজারকে ব্লক করা হয়েছে' : 'User blocked successfully');
+    } catch (err) {
+      console.error('Block user failed:', err);
+    }
+  };
+
+  const unblockUser = async (targetUserId: string) => {
+    if (!currentUser) return;
+    try {
+      await firebaseService.unblockUser(currentUser.id, targetUserId);
+      setBlockedUserIds((prev) => prev.filter((id) => id !== targetUserId));
+      showToast(lang === 'bn' ? 'ইউজারকে আনব্লক করা হয়েছে' : 'User unblocked successfully');
+    } catch (err) {
+      console.error('Unblock user failed:', err);
+    }
+  };
+
+  const isUserBlocked = (targetUserId: string) => {
+    return blockedUserIds.includes(targetUserId);
+  };
+
+  // WebRTC Audio & Video Calling Handlers
+  const startCall = async (targetUser: User, type: CallType): Promise<string | null> => {
+    if (!currentUser) {
+      setIsAuthModalOpen(true);
+      return null;
+    }
+    if (isUserBlocked(targetUser.id)) {
+      showToast(
+        lang === 'bn'
+          ? 'এই ব্যবহারকারী ব্লক থাকায় কল করা সম্ভব নয়'
+          : 'Cannot call blocked user'
+      );
+      return null;
+    }
+    try {
+      const callId = await webrtcService.createCall(currentUser, targetUser, type);
+      const session: CallSession = {
+        callId,
+        callerUid: currentUser.id,
+        callerName: currentUser.fullName,
+        callerAvatar: currentUser.avatar,
+        receiverUid: targetUser.id,
+        receiverName: targetUser.fullName,
+        receiverAvatar: targetUser.avatar,
+        callType: type,
+        status: 'ringing',
+        createdAt: new Date().toISOString(),
+      };
+      setActiveCall({
+        callId,
+        type,
+        role: 'caller',
+        otherUser: targetUser,
+        session,
+      });
+      setIncomingCall(null);
+      return callId;
+    } catch (err) {
+      console.error('Failed to initiate call:', err);
+      showToast(lang === 'bn' ? 'কল শুরু করতে সমস্যা হয়েছে' : 'Failed to start call');
+      return null;
+    }
+  };
+
+  const acceptIncomingCall = () => {
+    if (!incomingCall || !currentUser) return;
+    soundFx.stopRingtone();
+    const callerUser: User = users.find((u) => u.id === incomingCall.callerUid) || {
+      id: incomingCall.callerUid,
+      fullName: incomingCall.callerName,
+      username: '',
+      email: '',
+      avatar: incomingCall.callerAvatar,
+      bio: '',
+      coverImage: '',
+      followersCount: 0,
+      followingCount: 0,
+      postsCount: 0,
+      isVerified: false,
+      isBanned: false,
+      followers: [],
+      following: [],
+      role: 'user' as UserRole,
+      createdAt: new Date().toISOString(),
+    };
+    webrtcService.updateCallStatus(incomingCall.callId, 'accepted');
+    setActiveCall({
+      callId: incomingCall.callId,
+      type: incomingCall.callType,
+      role: 'receiver',
+      otherUser: callerUser,
+      session: incomingCall,
+    });
+    setIncomingCall(null);
+  };
+
+  const rejectIncomingCall = () => {
+    if (!incomingCall) return;
+    soundFx.stopRingtone();
+    soundFx.playEndChime();
+    webrtcService.updateCallStatus(incomingCall.callId, 'rejected');
+    setIncomingCall(null);
+  };
+
+  const endActiveCall = () => {
+    soundFx.stopRingtone();
+    soundFx.playEndChime();
+    if (activeCall) {
+      webrtcService.updateCallStatus(activeCall.callId, 'ended');
+      webrtcService.cleanupCallCandidates(activeCall.callId);
+      setActiveCall(null);
+    }
+    if (incomingCall) {
+      setIncomingCall(null);
+    }
   };
 
   // Push Notifications
@@ -1751,9 +2070,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   // Admin Master Override: update ANY user data directly
   const adminUpdateAnyUser = (userId: string, updates: Partial<User>) => {
-    setUsers((prev) =>
-      prev.map((u) => (u.id === userId ? { ...u, ...updates } : u))
-    );
+    setUsers((prev) => {
+      const updated = prev.map((u) => (u.id === userId ? { ...u, ...updates } : u));
+      const target = updated.find((u) => u.id === userId);
+      if (target) {
+        firebaseService.saveUser(target).catch((err) =>
+          console.warn('Failed to save admin user updates to Realtime Database:', err)
+        );
+      }
+      return updated;
+    });
     showToast(lang === 'bn' ? 'ইউজারের সমস্ত তথ্য সফলভাবে অ্যাডমিন কর্তৃক পরিবর্তিত হয়েছে!' : 'User details successfully updated by Admin!');
   };
 
@@ -2034,6 +2360,22 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         setActiveConversationId,
         sendMessage,
         startOrOpenChatWithUser,
+        deleteChatMessage,
+        deleteConversation,
+        setChatTyping,
+        markChatSeen,
+        userPresenceMap,
+        blockedUserIds,
+        blockUser,
+        unblockUser,
+        isUserBlocked,
+        activeCall,
+        incomingCall,
+        callHistory,
+        startCall,
+        acceptIncomingCall,
+        rejectIncomingCall,
+        endActiveCall,
         notifications,
         unreadNotificationsCount,
         markAllNotificationsRead,

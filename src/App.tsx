@@ -16,11 +16,22 @@ import { AuthGateScreen } from './components/AuthGateScreen';
 import { ShareModal } from './components/ShareModal';
 import { VercelModal } from './components/VercelModal';
 import { PwaInstallSystem } from './components/PwaInstallSystem';
+import { CallModal } from './components/CallModal';
 import { Toast } from './components/Toast';
 import { ErrorBoundary } from './components/ErrorBoundary';
 
 const MainLayout: React.FC = () => {
-  const { activeTab, currentUser } = useApp();
+  const {
+    activeTab,
+    currentUser,
+    activeCall,
+    incomingCall,
+    acceptIncomingCall,
+    rejectIncomingCall,
+    endActiveCall,
+    lang,
+    callHistory,
+  } = useApp();
 
   // If not logged in, enforce the Registration / Login Gate Screen
   if (!currentUser) {
@@ -71,6 +82,19 @@ const MainLayout: React.FC = () => {
       <AuthModal />
       <ShareModal />
       <VercelModal />
+
+      {/* Real-time WebRTC Audio & Video Calling Modal */}
+      {(activeCall || incomingCall) && (
+        <CallModal
+          activeCall={activeCall}
+          incomingCall={incomingCall}
+          onAcceptIncoming={acceptIncomingCall}
+          onRejectIncoming={rejectIncomingCall}
+          onEndCall={endActiveCall}
+          lang={lang}
+          callHistory={callHistory}
+        />
+      )}
 
       {/* Global Toast Banner */}
       <Toast />
