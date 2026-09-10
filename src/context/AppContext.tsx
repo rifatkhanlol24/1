@@ -37,6 +37,7 @@ import {
 import { app, auth } from '../lib/firebase';
 import { firebaseService } from '../lib/firebaseService';
 import { webrtcService, soundFx } from '../lib/webrtcService';
+import { MAIN_ADMIN_UID, SECOND_ADMIN_UID, isAuthorizedAdminUid } from '../lib/adminAuth';
 
 export type NavigationTab =
   | 'feed'
@@ -290,9 +291,26 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     fallbackName?: string,
     fallbackPhoto?: string
   ): Promise<User> => {
+    const isAdmin = isAuthorizedAdminUid(uid);
+    const isMainAdmin = uid === MAIN_ADMIN_UID;
+    const isSecondAdmin = uid === SECOND_ADMIN_UID;
+
     try {
       const rtdbUser = await firebaseService.getUser(uid);
       if (rtdbUser) {
+        // If this user is an authorized admin, strictly ensure admin role, verified, and VIP status
+        if (isAdmin) {
+          rtdbUser.role = 'admin';
+          rtdbUser.verified = true;
+          rtdbUser.isVerified = true;
+          rtdbUser.isVip = true;
+          rtdbUser.status = 'active';
+          rtdbUser.isBanned = false;
+          rtdbUser.statusBadge = isMainAdmin ? '🛡️ Platform Admin' : '🛡️ Platform Admin';
+
+          firebaseService.ensureAdminRoleInUserNode(uid).catch(() => {});
+          firebaseService.syncAdminRecord(uid).catch(() => {});
+        }
         // Update lastActive timestamp
         firebaseService.saveUser({ id: uid, lastActive: new Date().toISOString() }).catch(() => {});
         return {
@@ -304,15 +322,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       console.warn('[Firebase RTDB] Could not fetch profile for UID:', uid, err);
     }
 
-    const isAdmin = uid === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3';
     const defaultUser: User = {
       id: uid,
-      email: fallbackEmail || (isAdmin ? 'soheltajbhola@gmail.com' : `${uid}@1social.com`),
-      username: isAdmin ? 'shoheltaj' : `user_${uid.slice(0, 6)}`,
+      email: fallbackEmail || (isMainAdmin ? 'soheltajbhola@gmail.com' : (isSecondAdmin ? 'admin2@1social.com' : `${uid}@1social.com`)),
+      username: isMainAdmin ? 'shoheltaj' : (isSecondAdmin ? 'admin_wplu' : `user_${uid.slice(0, 6)}`),
       usernameChangeCount: 0,
-      fullName: fallbackName || (isAdmin ? 'Shohel Taj' : '1Social Member'),
-      fullNameBn: isAdmin ? 'সোহেল তাজ' : undefined,
-      fullNameEn: isAdmin ? 'Shohel Taj' : undefined,
+      fullName: fallbackName || (isMainAdmin ? 'Shohel Taj' : (isSecondAdmin ? 'Admin Partner' : '1Social Member')),
+      fullNameBn: isMainAdmin ? 'সোহেল তাজ' : (isSecondAdmin ? 'অ্যাডমিন' : undefined),
+      fullNameEn: isMainAdmin ? 'Shohel Taj' : (isSecondAdmin ? 'Admin Partner' : undefined),
       avatar: fallbackPhoto || (isAdmin
         ? 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80'
         : 'https://images.unsplash.com/photo-1535713875002?w=400&auto=format&fit=crop&q=80'),
@@ -320,11 +337,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         ? 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80'
         : 'https://images.unsplash.com/photo-1535713875002?w=400&auto=format&fit=crop&q=80'),
       coverImage: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=1200&auto=format&fit=crop&q=80',
-      bio: isAdmin
+      bio: isMainAdmin
         ? 'Platform Lead & Creator. Building next-gen web applications and connecting communities across the globe 🚀'
-        : 'Member of 1Social Community.',
+        : (isSecondAdmin
+            ? 'Platform Co-Admin & Security Supervisor 🛡️'
+            : 'Member of 1Social Community.'),
       location: 'Dhaka, Bangladesh',
-      website: isAdmin ? 'https://techlystb.blogspot.com' : undefined,
+      website: isMainAdmin ? 'https://techlystb.blogspot.com' : undefined,
       statusBadge: isAdmin ? '🛡️ Platform Admin' : undefined,
       role: isAdmin ? 'admin' : 'user',
       status: 'active',
@@ -344,6 +363,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     try {
       await firebaseService.saveUser(defaultUser);
+      if (isAdmin) {
+        await firebaseService.syncAdminRecord(uid);
+      }
     } catch (e) {
       console.warn('Could not save defaultUser to Realtime Database:', e);
     }
@@ -448,11 +470,19 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   }, [currentUserId]);
 
   useEffect(() => {
+    // Proactively initialize & sync both authorized admin records in Firebase Realtime Database
+    firebaseService.initializeAuthorizedAdmins().catch(() => {});
+
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      // Authoritative Single Admin check: UID must strictly match UI28ofvzB7cjNJvCG0DvYgbCu9J3
+      // Authoritative Admin check: UID must strictly match UI28ofvzB7cjNJvCG0DvYgbCu9J3 or wPLUJFA9M8QBCvPL11Q1CZvhL7G3
       if (user) {
-        const isAdmin = user.uid === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3';
+        const isAdmin = isAuthorizedAdminUid(user.uid);
         setIsFirebaseAdmin(isAdmin);
+
+        if (isAdmin) {
+          firebaseService.syncAdminRecord(user.uid).catch(() => {});
+          firebaseService.ensureAdminRoleInUserNode(user.uid).catch(() => {});
+        }
 
         const profile = await loadUserProfileFromFirebase(
           user.uid,
@@ -762,11 +792,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       const fbUser = cred.user;
       const uid = fbUser.uid;
 
-      // Authoritative Single Admin check: UID must strictly match UI28ofvzB7cjNJvCG0DvYgbCu9J3
-      const isAdmin = uid === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3';
+      // Authoritative Admin check: UID must strictly match authorized admin UIDs
+      const isAdmin = isAuthorizedAdminUid(uid);
       setIsFirebaseAdmin(isAdmin);
 
-      // Load profile from Firestore users/{uid}
+      if (isAdmin) {
+        firebaseService.syncAdminRecord(uid).catch(() => {});
+        firebaseService.ensureAdminRoleInUserNode(uid).catch(() => {});
+      }
+
+      // Load profile from Realtime Database users/{uid}
       const userProfile = await loadUserProfileFromFirebase(
         uid,
         fbUser.email || undefined,
@@ -785,8 +820,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
       showToast(
         lang === 'bn'
-          ? `Google দিয়ে স্বাগতম, ${userProfile.fullName}! ${isAdmin ? '(Main Admin ভেরিফাইড)' : ''}`
-          : `Signed in with Google, welcome ${userProfile.fullName}! ${isAdmin ? '(Main Admin Verified)' : ''}`
+          ? `Google দিয়ে স্বাগতম, ${userProfile.fullName}! ${isAdmin ? '(অ্যাডমিন ভেরিফাইড)' : ''}`
+          : `Signed in with Google, welcome ${userProfile.fullName}! ${isAdmin ? '(Admin Verified)' : ''}`
       );
       setIsAuthModalOpen(false);
       return true;
@@ -846,9 +881,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       const fbUser = cred.user;
       const uid = fbUser.uid;
 
-      // Authoritative Single Admin check: UID must strictly match UI28ofvzB7cjNJvCG0DvYgbCu9J3
-      const isAdmin = uid === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3';
+      // Authoritative Admin check: UID must strictly match authorized admin UIDs
+      const isAdmin = isAuthorizedAdminUid(uid);
       setIsFirebaseAdmin(isAdmin);
+
+      if (isAdmin) {
+        firebaseService.syncAdminRecord(uid).catch(() => {});
+        firebaseService.ensureAdminRoleInUserNode(uid).catch(() => {});
+      }
 
       // Load profile from Realtime Database users/{uid}
       const userProfile = await loadUserProfileFromFirebase(
@@ -991,6 +1031,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       const defaultAvatar = 'https://images.unsplash.com/photo-1535713875002?w=400&auto=format&fit=crop&q=80';
       const defaultCover = 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=1200&auto=format&fit=crop&q=80';
 
+      const isAdmin = isAuthorizedAdminUid(uid);
+      setIsFirebaseAdmin(isAdmin);
+
       // Exact structure specified in Requirement 1
       const newUserProfile: User = {
         id: uid,
@@ -1004,11 +1047,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         profileImage: defaultAvatar,
         avatar: defaultAvatar,
         coverImage: defaultCover,
-        role: 'user', // strictly user role
+        role: isAdmin ? 'admin' : 'user',
         status: 'active',
-        verified: false,
-        isVerified: false,
-        isVip: false,
+        verified: isAdmin,
+        isVerified: isAdmin,
+        isVip: isAdmin,
         isBanned: false,
         createdAt: new Date().toISOString(),
         lastActive: new Date().toISOString(),
@@ -1022,6 +1065,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
       // Write directly to Realtime Database users/{user.uid}
       await firebaseService.saveUser(newUserProfile);
+      if (isAdmin) {
+        await firebaseService.syncAdminRecord(uid);
+      }
 
       setUsers((prev) => [newUserProfile, ...prev.filter((u) => u.id !== uid)]);
       setCurrentUserId(uid);
@@ -1997,6 +2043,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   // Admin Actions
   const adminBanUser = (userId: string, banStatus: boolean) => {
+    if (banStatus && isAuthorizedAdminUid(userId)) {
+      showToast(lang === 'bn' ? 'অনুমোদিত অ্যাডমিন অ্যাকাউন্ট ব্যান করা যাবে না।' : 'Authorized Admin accounts cannot be banned.');
+      return;
+    }
     setUsers((prev) =>
       prev.map((u) => (u.id === userId ? { ...u, isBanned: banStatus } : u))
     );
@@ -2008,12 +2058,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const adminChangeRole = (userId: string, role: UserRole) => {
-    // Single Admin Model: Never delegate admin role to any other account
-    if (role === 'admin') {
+    // Two Authorized Admins Model: Only designated UIDs can hold the admin role
+    if (role === 'admin' && !isAuthorizedAdminUid(userId)) {
       showToast(
         lang === 'bn'
-          ? 'একক অ্যাডমিন মডেলের অধীনে অন্য কাউকে অ্যাডমিন রোল প্রদান করা নিষিদ্ধ।'
-          : 'Under the Single Admin Model, admin role cannot be delegated.'
+          ? 'শুধুমাত্র নির্ধারিত দুইটি অনুমোদিত UID ছাড়া অন্য কাউকে অ্যাডমিন রোল প্রদান করা যাবে না।'
+          : 'Only the two designated authorized Admin UIDs can hold the admin role.'
       );
       return;
     }
@@ -2024,6 +2074,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const adminDeleteUser = (userId: string) => {
+    if (isAuthorizedAdminUid(userId)) {
+      showToast(lang === 'bn' ? 'অনুমোদিত অ্যাডমিন অ্যাকাউন্ট ডিলিট করা যাবে না।' : 'Authorized Admin accounts cannot be deleted.');
+      return;
+    }
     setUsers((prev) => prev.filter((u) => u.id !== userId));
     setPosts((prev) => prev.filter((p) => p.authorId !== userId));
     showToast(lang === 'bn' ? 'ব্যবহারকারী এবং তার পোস্টসমূহ সফলভাবে ডিলিট করা হয়েছে।' : 'User and associated posts deleted.');

@@ -14,6 +14,7 @@ import {
 } from 'firebase/database';
 import { rtdb } from './firebase';
 import { User, Post, Message, Conversation, AppNotification } from '../types';
+import { MAIN_ADMIN_UID, SECOND_ADMIN_UID, isAuthorizedAdminUid } from './adminAuth';
 
 // Realtime Database Paths
 const USERS_PATH = 'users';
@@ -24,6 +25,7 @@ const NOTIFS_PATH = 'notifications';
 const PRESENCE_PATH = 'presence';
 const TYPING_PATH = 'typing';
 const BLOCKS_PATH = 'blocks';
+const ADMINS_PATH = 'admins';
 
 // Helper to remove undefined properties which RTDB rejects
 function sanitizeObject<T extends Record<string, any>>(obj: T): T {
@@ -835,5 +837,89 @@ export const firebaseService = {
     }
 
     return { usersCount, postsCount };
+  },
+
+  // Authoritative Admin Sync & Node Update for Authorized Admins
+  async syncAdminRecord(uid: string): Promise<boolean> {
+    if (!isAuthorizedAdminUid(uid)) {
+      console.warn('[Admin Auth] Rejected non-authorized UID sync:', uid);
+      return false;
+    }
+    try {
+      const adminNodeRef = ref(rtdb, `${ADMINS_PATH}/${uid}`);
+      await set(adminNodeRef, {
+        role: 'admin',
+        uid,
+        updatedAt: new Date().toISOString(),
+      });
+      return true;
+    } catch (err) {
+      console.warn('[Firebase RTDB] Error syncing admin node for', uid, err);
+      return false;
+    }
+  },
+
+  async ensureAdminRoleInUserNode(uid: string): Promise<boolean> {
+    if (!isAuthorizedAdminUid(uid)) {
+      console.warn('[Admin Auth] Rejected non-authorized UID role promotion:', uid);
+      return false;
+    }
+    try {
+      const userRef = ref(rtdb, `${USERS_PATH}/${uid}`);
+      const snap = await get(userRef);
+      if (snap.exists()) {
+        await update(userRef, {
+          role: 'admin',
+          verified: true,
+          isVerified: true,
+          status: 'active',
+          isBanned: false,
+          isVip: true,
+        });
+      } else {
+        // Create initial admin user profile if not present
+        const isMain = uid === MAIN_ADMIN_UID;
+        await set(userRef, sanitizeObject({
+          id: uid,
+          email: isMain ? 'soheltajbhola@gmail.com' : `${uid}@1social.com`,
+          name: isMain ? 'Shohel Taj' : 'Authorized Admin',
+          fullName: isMain ? 'Shohel Taj' : 'Authorized Admin',
+          username: isMain ? 'shoheltaj' : `admin_${uid.slice(0, 8)}`,
+          bio: isMain ? 'Platform Lead & Creator 🚀' : 'Platform Administrator 🛡️',
+          avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80',
+          profileImage: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80',
+          coverImage: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=1200&auto=format&fit=crop&q=80',
+          role: 'admin',
+          status: 'active',
+          verified: true,
+          isVerified: true,
+          isVip: true,
+          isBanned: false,
+          followersCount: 0,
+          followingCount: 0,
+          postsCount: 0,
+          usernameChangeCount: 0,
+          createdAt: new Date().toISOString(),
+          lastActive: new Date().toISOString(),
+        }));
+      }
+      return true;
+    } catch (err) {
+      console.warn('[Firebase RTDB] Error ensuring admin role in user node for', uid, err);
+      return false;
+    }
+  },
+
+  async initializeAuthorizedAdmins(): Promise<void> {
+    try {
+      await Promise.all([
+        this.ensureAdminRoleInUserNode(MAIN_ADMIN_UID),
+        this.ensureAdminRoleInUserNode(SECOND_ADMIN_UID),
+        this.syncAdminRecord(MAIN_ADMIN_UID),
+        this.syncAdminRecord(SECOND_ADMIN_UID),
+      ]);
+    } catch (err) {
+      console.warn('[Admin Init] Error initializing authorized admins:', err);
+    }
   },
 };

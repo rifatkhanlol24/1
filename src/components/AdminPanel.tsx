@@ -36,6 +36,7 @@ import { FirebaseConsole } from './FirebaseConsole';
 import { UsernameChangeTracker } from './UsernameChangeTracker';
 import { getAuth, signOut } from 'firebase/auth';
 import { app } from '../lib/firebase';
+import { MAIN_ADMIN_UID, SECOND_ADMIN_UID, isAuthorizedAdminUid } from '../lib/adminAuth';
 
 export const AdminPanel: React.FC = () => {
   const {
@@ -69,8 +70,8 @@ export const AdminPanel: React.FC = () => {
   const auth = getAuth(app);
   const currentAuthUser = auth.currentUser;
   const isDirectlyVerified =
-    (currentAuthUser && currentAuthUser.uid === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3') ||
-    (currentUser && currentUser.id === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3' && isFirebaseAdmin);
+    (currentAuthUser && isAuthorizedAdminUid(currentAuthUser.uid)) ||
+    (currentUser && isAuthorizedAdminUid(currentUser.id) && isFirebaseAdmin);
 
   const [isAdminVerified, setIsAdminVerified] = useState<boolean>(Boolean(isDirectlyVerified));
   const [activeSubTab, setActiveSubTab] = useState<
@@ -99,7 +100,7 @@ export const AdminPanel: React.FC = () => {
       setIsAdminVerified(true);
     } else {
       const unsub = auth.onAuthStateChanged((user) => {
-        setIsAdminVerified(Boolean(user && user.uid === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3'));
+        setIsAdminVerified(Boolean(user && isAuthorizedAdminUid(user.uid)));
       });
       return () => unsub();
     }
@@ -141,8 +142,8 @@ export const AdminPanel: React.FC = () => {
             </h2>
             <p className="text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed">
               {lang === 'bn'
-                ? 'এই প্যানেলটি শুধুমাত্র অনুমোদিত মেইন অ্যাডমিন (UID: UI28ofvzB7cjNJvCG0DvYgbCu9J3) এর জন্য Firebase Authentication দ্বারা সুরক্ষিত।'
-                : 'This panel is strictly restricted to the authorized Main Admin (UID: UI28ofvzB7cjNJvCG0DvYgbCu9J3) via Firebase Authentication.'}
+                ? `এই প্যানেলটি শুধুমাত্র অনুমোদিত অ্যাডমিন (UID: ${MAIN_ADMIN_UID} বা ${SECOND_ADMIN_UID}) এর জন্য Firebase Authentication দ্বারা সুরক্ষিত।`
+                : `This panel is strictly restricted to authorized Admins (UID: ${MAIN_ADMIN_UID} or ${SECOND_ADMIN_UID}) via Firebase Authentication.`}
             </p>
           </div>
 
@@ -651,7 +652,7 @@ export const AdminPanel: React.FC = () => {
                         {u.isBanned ? 'Unban' : 'Ban'}
                       </button>
 
-                      {u.id !== currentUser?.id && (
+                      {u.id !== currentUser?.id && !isAuthorizedAdminUid(u.id) && (
                         <button
                           onClick={() => {
                             if (confirm(`Delete ${u.fullName} permanently?`)) {

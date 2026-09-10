@@ -233,7 +233,7 @@ export const ChatView: React.FC = () => {
       !u.fullName.includes('AI Booster') &&
       !u.username.startsWith('USER-') &&
       !u.username.startsWith('bot_') &&
-      (currentUser?.following.includes(u.id) || ['UI28ofvzB7cjNJvCG0DvYgbCu9J3', 'user-2', 'user-3', 'user-4', 'user-5'].includes(u.id))
+      (currentUser?.following.includes(u.id) || ['UI28ofvzB7cjNJvCG0DvYgbCu9J3', 'wPLUJFA9M8QBCvPL11Q1CZvhL7G3', 'user-2', 'user-3', 'user-4', 'user-5'].includes(u.id))
   );
 
   const handleStartChatWithUser = (targetUserId: string) => {
