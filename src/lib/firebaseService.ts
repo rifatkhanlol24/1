@@ -14,7 +14,7 @@ import {
 } from 'firebase/database';
 import { rtdb } from './firebase';
 import { User, Post, Message, Conversation, AppNotification } from '../types';
-import { MAIN_ADMIN_UID, SECOND_ADMIN_UID, isAuthorizedAdminUid } from './adminAuth';
+import { MAIN_ADMIN_UID, SECOND_ADMIN_UID, isAuthorizedAdminUid, isKnownFakeUserId } from './adminAuth';
 
 // Realtime Database Paths
 const USERS_PATH = 'users';
@@ -66,6 +66,11 @@ export const firebaseService = {
   // Save / Update User in RTDB at users/{uid}
   async saveUser(user: Partial<User> & { id: string }): Promise<boolean> {
     try {
+      if (isKnownFakeUserId(user.id)) {
+        console.warn(`[RTDB saveUser] Blocked attempt to save fake user ID: ${user.id}`);
+        return false;
+      }
+
       const name = (user.fullName || user.name || 'User').trim();
       const avatar =
         user.avatar ||
@@ -111,6 +116,9 @@ export const firebaseService = {
   // Fetch Single User by UID from RTDB
   async getUser(uid: string): Promise<User | null> {
     try {
+      if (isKnownFakeUserId(uid)) {
+        return null;
+      }
       const userRef = ref(rtdb, `${USERS_PATH}/${uid}`);
       const snapshot = await get(userRef);
       if (snapshot.exists()) {
@@ -133,43 +141,16 @@ export const firebaseService = {
     }
   },
 
-  // Fetch All Users from RTDB
+  // Fetch All Users from RTDB (filtering out any fake / legacy bot IDs)
   async getUsers(): Promise<User[]> {
     try {
       const usersRef = ref(rtdb, USERS_PATH);
       const snapshot = await get(usersRef);
       if (snapshot.exists()) {
         const data = snapshot.val();
-        return Object.keys(data).map((key) => {
-          const u = data[key];
-          return {
-            ...u,
-            id: key,
-            fullName: u.fullName || u.name || 'User',
-            name: u.name || u.fullName || 'User',
-            avatar: u.avatar || u.profileImage || '',
-            profileImage: u.profileImage || u.avatar || '',
-            followers: Array.isArray(u.followers) ? u.followers : [],
-            following: Array.isArray(u.following) ? u.following : [],
-          } as User;
-        });
-      }
-      return [];
-    } catch (err) {
-      console.warn('RTDB getUsers error:', err);
-      return [];
-    }
-  },
-
-  // Subscribe to Realtime Users updates
-  subscribeUsers(callback: (users: User[]) => void): Unsubscribe {
-    const usersRef = ref(rtdb, USERS_PATH);
-    return onValue(
-      usersRef,
-      (snapshot) => {
-        if (snapshot.exists()) {
-          const data = snapshot.val();
-          const list: User[] = Object.keys(data).map((key) => {
+        const list: User[] = Object.keys(data)
+          .filter((key) => !isKnownFakeUserId(key))
+          .map((key) => {
             const u = data[key];
             return {
               ...u,
@@ -182,6 +163,38 @@ export const firebaseService = {
               following: Array.isArray(u.following) ? u.following : [],
             } as User;
           });
+        return list;
+      }
+      return [];
+    } catch (err) {
+      console.warn('RTDB getUsers error:', err);
+      return [];
+    }
+  },
+
+  // Subscribe to Realtime Users updates (strictly real authenticated users)
+  subscribeUsers(callback: (users: User[]) => void): Unsubscribe {
+    const usersRef = ref(rtdb, USERS_PATH);
+    return onValue(
+      usersRef,
+      (snapshot) => {
+        if (snapshot.exists()) {
+          const data = snapshot.val();
+          const list: User[] = Object.keys(data)
+            .filter((key) => !isKnownFakeUserId(key))
+            .map((key) => {
+              const u = data[key];
+              return {
+                ...u,
+                id: key,
+                fullName: u.fullName || u.name || 'User',
+                name: u.name || u.fullName || 'User',
+                avatar: u.avatar || u.profileImage || '',
+                profileImage: u.profileImage || u.avatar || '',
+                followers: Array.isArray(u.followers) ? u.followers : [],
+                following: Array.isArray(u.following) ? u.following : [],
+              } as User;
+            });
           callback(list);
         } else {
           callback([]);
@@ -191,6 +204,44 @@ export const firebaseService = {
         console.warn('RTDB users subscription error:', err);
       }
     );
+  },
+
+  // Purge any residual known fake, mock, bot, or demo user records from RTDB
+  async purgeKnownFakeUsersFromDatabase(): Promise<{ cleaned: string[]; preserved: string[] }> {
+    try {
+      const usersRef = ref(rtdb, USERS_PATH);
+      const snapshot = await get(usersRef);
+      if (!snapshot.exists()) return { cleaned: [], preserved: [] };
+
+      const data = snapshot.val();
+      const cleaned: string[] = [];
+      const preserved: string[] = [];
+
+      for (const key of Object.keys(data)) {
+        // Strictly protect authorized admin accounts and real accounts
+        if (isAuthorizedAdminUid(key)) {
+          preserved.push(key);
+          continue;
+        }
+
+        if (isKnownFakeUserId(key)) {
+          try {
+            const userNodeRef = ref(rtdb, `${USERS_PATH}/${key}`);
+            await remove(userNodeRef);
+            cleaned.push(key);
+          } catch (e) {
+            console.warn(`[RTDB Purge] Could not delete fake user ${key}:`, e);
+          }
+        } else {
+          preserved.push(key);
+        }
+      }
+
+      return { cleaned, preserved };
+    } catch (err) {
+      console.warn('purgeKnownFakeUsersFromDatabase error:', err);
+      return { cleaned: [], preserved: [] };
+    }
   },
 
   // Save / Update Post

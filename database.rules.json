@@ -18,13 +18,13 @@
           ".validate": "newData.isString() && ((auth.uid === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3' || auth.uid === 'wPLUJFA9M8QBCvPL11Q1CZvhL7G3') || newData.val() === $userId)"
         },
         "fullName": {
-          ".validate": "newData.isString() && newData.val().length >= 2 && newData.val().length <= 70 && newData.val().matches(/^[a-zA-Z ]+$/) && !newData.val().matches(/[\\u0980-\\u09FF]/)"
+          ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 100"
         },
         "name": {
-          ".validate": "newData.isString() && newData.val().length >= 2 && newData.val().length <= 70 && newData.val().matches(/^[a-zA-Z ]+$/) && !newData.val().matches(/[\\u0980-\\u09FF]/)"
+          ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 100"
         },
         "username": {
-          ".validate": "newData.isString() && newData.val().length >= 3 && newData.val().length <= 30 && newData.val().matches(/^[a-zA-Z0-9_.-]+$/) && !newData.val().matches(/[\\u0980-\\u09FF]/)"
+          ".validate": "newData.isString() && newData.val().length >= 2 && newData.val().length <= 40"
         },
         "email": {
           ".validate": "newData.isString() && newData.val().length > 0"
