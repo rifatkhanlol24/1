@@ -8,8 +8,6 @@ import {
   UserPlus,
   ShieldCheck,
   Camera,
-  Moon,
-  Sun,
   Languages,
   CheckCircle2,
   KeyRound,
@@ -30,8 +28,6 @@ export const AuthGateScreen: React.FC = () => {
     users,
     loggedInUserIds,
     resetPasswordByUsernameOrEmail,
-    darkMode,
-    toggleDarkMode,
     lang,
     toggleLang,
     showToast,
@@ -156,7 +152,7 @@ export const AuthGateScreen: React.FC = () => {
         {/* Brand */}
         <Logo subtitle={lang === 'bn' ? 'সোশ্যাল নেটওয়ার্ক ও লাইভ প্ল্যাটফর্ম' : 'Next-Gen Social Network'} />
 
-        {/* Theme & Language Toggles */}
+        {/* Language Toggle */}
         <div className="flex items-center gap-2">
           <button
             onClick={toggleLang}
@@ -164,14 +160,6 @@ export const AuthGateScreen: React.FC = () => {
           >
             <Languages className="w-3.5 h-3.5 text-indigo-500" />
             <span>{lang === 'bn' ? 'English' : 'বাংলা'}</span>
-          </button>
-
-          <button
-            onClick={toggleDarkMode}
-            className="p-2 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white/80 dark:bg-neutral-900/80 hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-600 dark:text-neutral-300 shadow-xs transition-colors"
-            title="Toggle Dark Mode"
-          >
-            {darkMode ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-indigo-600" />}
           </button>
         </div>
       </header>

@@ -2,8 +2,6 @@ import React, { useState, useMemo } from 'react';
 import {
   Search,
   Bell,
-  Sun,
-  Moon,
   Plus,
   ShieldCheck,
   Globe,
@@ -34,8 +32,6 @@ export const Navbar: React.FC = () => {
     setActiveTab,
     searchQuery,
     setSearchQuery,
-    darkMode,
-    toggleDarkMode,
     lang,
     toggleLang,
     unreadNotificationsCount,
@@ -198,16 +194,6 @@ export const Navbar: React.FC = () => {
             title={lang === 'bn' ? 'Switch to English' : 'বাংলায় দেখুন'}
           >
             {lang === 'bn' ? 'EN' : 'বাং'}
-          </button>
-
-          {/* Dark Mode Toggle */}
-          <button
-            id="theme-toggle-btn"
-            onClick={toggleDarkMode}
-            className="p-2 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-lg transition-colors"
-            title={darkMode ? 'Light Mode' : 'Dark Mode'}
-          >
-            {darkMode ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-neutral-600" />}
           </button>
 
           {/* Notifications Dropdown Button */}
