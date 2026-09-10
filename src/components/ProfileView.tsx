@@ -40,6 +40,7 @@ export const ProfileView: React.FC = () => {
     requestVerification,
     verificationRequests,
     setSelectedUserProfileId,
+    isFirebaseAdmin,
     lang,
     showToast,
   } = useApp();
@@ -79,7 +80,6 @@ export const ProfileView: React.FC = () => {
 
   if (!profileUser) return null;
 
-  const { isFirebaseAdmin } = useApp();
   const isAdmin = isFirebaseAdmin;
   const isMe = currentUser?.id === profileUser.id;
   const canEdit = isMe || isAdmin;

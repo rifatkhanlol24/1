@@ -87,7 +87,7 @@ export const RightSidebar: React.FC = () => {
           <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
         </div>
         <p className="text-[11px] text-neutral-600 dark:text-neutral-400 leading-relaxed font-mono">
-          social-media1bd • Firestore DB
+          social-media1bd • Realtime Database
         </p>
         <button
           onClick={() => setActiveTab('admin')}
@@ -213,7 +213,7 @@ export const RightSidebar: React.FC = () => {
       {/* Footer credits */}
       <div className="px-2 text-[11px] text-neutral-400 space-y-1">
         <p>© 2026 1 social • Firebase Integrated</p>
-        <p>Google Cloud Firestore • React 19 • Tailwind CSS</p>
+        <p>Firebase Realtime Database • React 19 • Tailwind CSS</p>
       </div>
     </aside>
   );

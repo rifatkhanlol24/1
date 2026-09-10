@@ -2,8 +2,8 @@ import { User, Post, Message, Conversation, AppNotification, TrendingTag } from 
 
 export const INITIAL_USERS: User[] = [
   {
-    id: 'user-admin',
-    email: 'shohel@1social.com',
+    id: 'UI28ofvzB7cjNJvCG0DvYgbCu9J3',
+    email: 'soheltajbhola@gmail.com',
     password: 'password123',
     username: 'shoheltaj',
     usernameChangeCount: 0,
@@ -55,8 +55,8 @@ export const INITIAL_USERS: User[] = [
     isVip: false,
     badge: 'Verified',
     isBanned: false,
-    followers: ['user-admin', 'user-3', 'user-4'],
-    following: ['user-admin', 'user-5'],
+    followers: ['UI28ofvzB7cjNJvCG0DvYgbCu9J3', 'user-3', 'user-4'],
+    following: ['UI28ofvzB7cjNJvCG0DvYgbCu9J3', 'user-5'],
     createdAt: '2024-02-10T11:20:00Z',
   },
   {
@@ -76,8 +76,8 @@ export const INITIAL_USERS: User[] = [
     role: 'moderator',
     isVerified: true,
     isBanned: false,
-    followers: ['user-admin', 'user-2'],
-    following: ['user-admin', 'user-2', 'user-4'],
+    followers: ['UI28ofvzB7cjNJvCG0DvYgbCu9J3', 'user-2'],
+    following: ['UI28ofvzB7cjNJvCG0DvYgbCu9J3', 'user-2', 'user-4'],
     createdAt: '2024-02-18T14:45:00Z',
   },
   {
@@ -97,8 +97,8 @@ export const INITIAL_USERS: User[] = [
     role: 'user',
     isVerified: false,
     isBanned: false,
-    followers: ['user-admin', 'user-3'],
-    following: ['user-admin', 'user-2'],
+    followers: ['UI28ofvzB7cjNJvCG0DvYgbCu9J3', 'user-3'],
+    following: ['UI28ofvzB7cjNJvCG0DvYgbCu9J3', 'user-2'],
     createdAt: '2024-03-01T16:10:00Z',
   },
   {
@@ -118,8 +118,8 @@ export const INITIAL_USERS: User[] = [
     role: 'user',
     isVerified: false,
     isBanned: false,
-    followers: ['user-admin', 'user-2', 'user-3'],
-    following: ['user-admin'],
+    followers: ['UI28ofvzB7cjNJvCG0DvYgbCu9J3', 'user-2', 'user-3'],
+    following: ['UI28ofvzB7cjNJvCG0DvYgbCu9J3'],
     createdAt: '2024-03-05T08:30:00Z',
   },
 ];
@@ -138,13 +138,13 @@ export const INITIAL_POSTS: Post[] = [
     tags: ['photography', 'sunset', 'nature', 'goldenhour'],
     location: 'Kuakata Sea Beach, Patuakhali',
     createdAt: '2026-09-07T14:30:00Z',
-    likes: ['user-admin', 'user-3', 'user-4'],
-    savedBy: ['user-admin'],
+    likes: ['UI28ofvzB7cjNJvCG0DvYgbCu9J3', 'user-3', 'user-4'],
+    savedBy: ['UI28ofvzB7cjNJvCG0DvYgbCu9J3'],
     comments: [
       {
         id: 'c-1',
         postId: 'post-1',
-        authorId: 'user-admin',
+        authorId: 'UI28ofvzB7cjNJvCG0DvYgbCu9J3',
         authorName: 'Sohel Taj',
         authorUsername: 'sohel_admin',
         authorAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80',
@@ -179,8 +179,8 @@ export const INITIAL_POSTS: Post[] = [
     tags: ['developer', 'workspace', 'setup', 'coding', 'tech'],
     location: 'Chittagong Tech Hub',
     createdAt: '2026-09-07T12:00:00Z',
-    likes: ['user-admin', 'user-2', 'user-5'],
-    savedBy: ['user-admin', 'user-5'],
+    likes: ['UI28ofvzB7cjNJvCG0DvYgbCu9J3', 'user-2', 'user-5'],
+    savedBy: ['UI28ofvzB7cjNJvCG0DvYgbCu9J3', 'user-5'],
     comments: [
       {
         id: 'c-3',
@@ -198,7 +198,7 @@ export const INITIAL_POSTS: Post[] = [
   },
   {
     id: 'post-3',
-    authorId: 'user-admin',
+    authorId: 'UI28ofvzB7cjNJvCG0DvYgbCu9J3',
     authorName: 'Rifat Khan (Admin)',
     authorUsername: 'rifat_admin',
     authorAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80',
@@ -221,7 +221,7 @@ export const INITIAL_POSTS: Post[] = [
         authorAvatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400&auto=format&fit=crop&q=80',
         content: 'Congratulations on the launch! Loving the UI polish and instant photo editing tools!',
         createdAt: '2026-09-07T08:30:00Z',
-        likes: ['user-admin'],
+        likes: ['UI28ofvzB7cjNJvCG0DvYgbCu9J3'],
       },
     ],
     sharesCount: 28,
@@ -239,8 +239,8 @@ export const INITIAL_POSTS: Post[] = [
     tags: ['sajek', 'travel', 'mountains', 'nature', 'adventure'],
     location: 'Sajek Valley, Rangamati',
     createdAt: '2026-09-06T18:20:00Z',
-    likes: ['user-admin', 'user-2'],
-    savedBy: ['user-admin'],
+    likes: ['UI28ofvzB7cjNJvCG0DvYgbCu9J3', 'user-2'],
+    savedBy: ['UI28ofvzB7cjNJvCG0DvYgbCu9J3'],
     comments: [],
     sharesCount: 11,
   },
@@ -249,12 +249,12 @@ export const INITIAL_POSTS: Post[] = [
 export const INITIAL_CONVERSATIONS: Conversation[] = [
   {
     id: 'conv-1',
-    participantIds: ['user-admin', 'user-2'],
+    participantIds: ['UI28ofvzB7cjNJvCG0DvYgbCu9J3', 'user-2'],
     lastMessage: {
       id: 'm-1',
       conversationId: 'conv-1',
       senderId: 'user-2',
-      receiverId: 'user-admin',
+      receiverId: 'UI28ofvzB7cjNJvCG0DvYgbCu9J3',
       text: 'Hey Rifat! I love the new photo editing filters you added to the app! ✨',
       createdAt: '2026-09-07T18:15:00Z',
       isRead: false,
@@ -263,12 +263,12 @@ export const INITIAL_CONVERSATIONS: Conversation[] = [
   },
   {
     id: 'conv-2',
-    participantIds: ['user-admin', 'user-3'],
+    participantIds: ['UI28ofvzB7cjNJvCG0DvYgbCu9J3', 'user-3'],
     lastMessage: {
       id: 'm-2',
       conversationId: 'conv-2',
       senderId: 'user-3',
-      receiverId: 'user-admin',
+      receiverId: 'UI28ofvzB7cjNJvCG0DvYgbCu9J3',
       text: 'Vercel deployment scripts and server optimizations look super crisp! Ready for traffic 🚀',
       createdAt: '2026-09-07T16:40:00Z',
       isRead: true,
@@ -281,7 +281,7 @@ export const INITIAL_MESSAGES: Message[] = [
   {
     id: 'm-prev-1',
     conversationId: 'conv-1',
-    senderId: 'user-admin',
+    senderId: 'UI28ofvzB7cjNJvCG0DvYgbCu9J3',
     receiverId: 'user-2',
     text: 'Hi Sarah! Checked out your recent sunset photography post, truly phenomenal colors!',
     createdAt: '2026-09-07T17:40:00Z',
@@ -291,7 +291,7 @@ export const INITIAL_MESSAGES: Message[] = [
     id: 'm-1',
     conversationId: 'conv-1',
     senderId: 'user-2',
-    receiverId: 'user-admin',
+    receiverId: 'UI28ofvzB7cjNJvCG0DvYgbCu9J3',
     text: 'Hey Shohel! I love the new photo editing filters you added to the app! ✨',
     createdAt: '2026-09-07T18:15:00Z',
     isRead: false,
@@ -299,7 +299,7 @@ export const INITIAL_MESSAGES: Message[] = [
   {
     id: 'm-prev-2',
     conversationId: 'conv-2',
-    senderId: 'user-admin',
+    senderId: 'UI28ofvzB7cjNJvCG0DvYgbCu9J3',
     receiverId: 'user-3',
     text: 'Tanvir, how is the responsive layout performing on mobile devices?',
     createdAt: '2026-09-07T16:30:00Z',
@@ -309,7 +309,7 @@ export const INITIAL_MESSAGES: Message[] = [
     id: 'm-2',
     conversationId: 'conv-2',
     senderId: 'user-3',
-    receiverId: 'user-admin',
+    receiverId: 'UI28ofvzB7cjNJvCG0DvYgbCu9J3',
     text: 'Vercel deployment scripts and server optimizations look super crisp! Ready for traffic 🚀',
     createdAt: '2026-09-07T16:40:00Z',
     isRead: true,
@@ -319,7 +319,7 @@ export const INITIAL_MESSAGES: Message[] = [
 export const INITIAL_NOTIFICATIONS: AppNotification[] = [
   {
     id: 'notif-1',
-    userId: 'user-admin',
+    userId: 'UI28ofvzB7cjNJvCG0DvYgbCu9J3',
     actorId: 'user-2',
     actorName: 'Sarah Rahman',
     actorUsername: 'sarah_visuals',
@@ -332,7 +332,7 @@ export const INITIAL_NOTIFICATIONS: AppNotification[] = [
   },
   {
     id: 'notif-2',
-    userId: 'user-admin',
+    userId: 'UI28ofvzB7cjNJvCG0DvYgbCu9J3',
     actorId: 'user-4',
     actorName: 'Maya Chowdhury',
     actorUsername: 'maya_nomad',
@@ -344,7 +344,7 @@ export const INITIAL_NOTIFICATIONS: AppNotification[] = [
   },
   {
     id: 'notif-3',
-    userId: 'user-admin',
+    userId: 'UI28ofvzB7cjNJvCG0DvYgbCu9J3',
     actorId: 'user-2',
     actorName: 'Sarah Rahman',
     actorUsername: 'sarah_visuals',
@@ -357,8 +357,8 @@ export const INITIAL_NOTIFICATIONS: AppNotification[] = [
   },
   {
     id: 'notif-4',
-    userId: 'user-admin',
-    actorId: 'user-admin',
+    userId: 'UI28ofvzB7cjNJvCG0DvYgbCu9J3',
+    actorId: 'UI28ofvzB7cjNJvCG0DvYgbCu9J3',
     actorName: 'System Security',
     actorUsername: 'system',
     actorAvatar: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=400&auto=format&fit=crop&q=80',

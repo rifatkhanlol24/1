@@ -15,7 +15,7 @@
       ".read": true,
       "$userId": {
         ".write": "auth != null && (auth.uid === $userId || auth.uid === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3')",
-        ".validate": "newData.hasChildren(['fullName', 'username'])",
+        ".validate": "newData.hasChildren(['username']) && (newData.hasChild('fullName') || newData.hasChild('name'))",
 
         "id": {
           ".validate": "newData.isString() && (auth.uid === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3' || newData.val() === $userId)"
@@ -23,11 +23,35 @@
         "fullName": {
           ".validate": "newData.isString() && newData.val().length >= 2 && newData.val().length <= 70 && newData.val().matches(/^[a-zA-Z ]+$/) && !newData.val().matches(/[\\u0980-\\u09FF]/)"
         },
+        "name": {
+          ".validate": "newData.isString() && newData.val().length >= 2 && newData.val().length <= 70 && newData.val().matches(/^[a-zA-Z ]+$/) && !newData.val().matches(/[\\u0980-\\u09FF]/)"
+        },
         "username": {
           ".validate": "newData.isString() && newData.val().length >= 3 && newData.val().length <= 30 && newData.val().matches(/^[a-zA-Z0-9_.-]+$/) && !newData.val().matches(/[\\u0980-\\u09FF]/)"
         },
+        "email": {
+          ".validate": "newData.isString() && newData.val().length > 0"
+        },
+        "bio": {
+          ".validate": "newData.isString()"
+        },
+        "avatar": {
+          ".validate": "newData.isString()"
+        },
+        "profileImage": {
+          ".validate": "newData.isString()"
+        },
+        "coverImage": {
+          ".validate": "newData.isString()"
+        },
         "role": {
           ".validate": "newData.isString() && (auth.uid === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3' ? (newData.val() === 'admin' || newData.val() === 'moderator' || newData.val() === 'user') : (!data.exists() ? newData.val() === 'user' : newData.val() === data.val()))"
+        },
+        "status": {
+          ".validate": "newData.isString() && (auth.uid === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3' || (!data.exists() ? newData.val() === 'active' : newData.val() === data.val()))"
+        },
+        "verified": {
+          ".validate": "newData.isBoolean() && (auth.uid === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3' || (!data.exists() ? newData.val() === false : newData.val() === data.val()))"
         },
         "isVerified": {
           ".validate": "newData.isBoolean() && (auth.uid === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3' || (!data.exists() ? newData.val() === false : newData.val() === data.val()))"
@@ -41,17 +65,14 @@
         "usernameChangeCount": {
           ".validate": "newData.isNumber() && newData.val() >= 0 && (auth.uid === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3' || (!data.exists() ? newData.val() === 0 : (newData.val() <= 10 && (newData.val() === data.val() || newData.val() === data.val() + 1))))"
         },
-        "email": {
-          ".validate": "newData.isString() && newData.val().length > 0"
+        "followersCount": {
+          ".validate": "newData.isNumber() && (auth.uid === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3' || (!data.exists() ? newData.val() === 0 : true))"
         },
-        "avatar": {
-          ".validate": "newData.isString()"
+        "followingCount": {
+          ".validate": "newData.isNumber() && (auth.uid === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3' || (!data.exists() ? newData.val() === 0 : true))"
         },
-        "coverImage": {
-          ".validate": "newData.isString()"
-        },
-        "bio": {
-          ".validate": "newData.isString()"
+        "postsCount": {
+          ".validate": "newData.isNumber() && (auth.uid === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3' || (!data.exists() ? newData.val() === 0 : true))"
         },
         "location": {
           ".validate": "newData.isString()"
@@ -67,6 +88,9 @@
         },
         "createdAt": {
           ".validate": "auth.uid === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3' || !data.exists() || newData.val() === data.val()"
+        },
+        "lastActive": {
+          ".validate": "newData.isString()"
         }
       }
     },

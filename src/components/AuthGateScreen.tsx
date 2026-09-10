@@ -26,7 +26,6 @@ export const AuthGateScreen: React.FC = () => {
     loginWithGoogle,
     register,
     users,
-    loggedInUserIds,
     resetPasswordByUsernameOrEmail,
     lang,
     toggleLang,
@@ -73,7 +72,7 @@ export const AuthGateScreen: React.FC = () => {
     }
   };
 
-  const handleRegister = (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmedFullName = fullName.trim();
     const trimmedUsername = registerUsername.trim();
@@ -85,45 +84,63 @@ export const AuthGateScreen: React.FC = () => {
       return;
     }
 
-    // Name English-only validation (A-Z, a-z and spaces only - no numbers or special chars)
+    // Name English-only validation (A-Z, a-z and spaces only, min 2, max 70 chars)
     const englishNameRegex = /^[a-zA-Z ]+$/;
     const hasBengaliChars = /[\u0980-\u09FF]/;
 
-    if (hasBengaliChars.test(trimmedFullName) || !englishNameRegex.test(trimmedFullName) || trimmedFullName.length < 2) {
+    if (
+      hasBengaliChars.test(trimmedFullName) ||
+      !englishNameRegex.test(trimmedFullName) ||
+      trimmedFullName.length < 2 ||
+      trimmedFullName.length > 70
+    ) {
       showToast(
         lang === 'bn'
-          ? 'নাম শুধুমাত্র ইংরেজি অক্ষর (A-Z, a-z) এবং স্পেস হতে পারবে (সংখ্যা, প্রতীক বা বাংলা গ্রহণযোগ্য নয়)।'
-          : 'Name must contain only English letters (A-Z, a-z) and spaces.'
+          ? 'নাম শুধুমাত্র ইংরেজি অক্ষর (A-Z, a-z) এবং স্পেস হতে পারবে (২ থেকে ৭০ অক্ষর, সংখ্যা, প্রতীক বা বাংলা গ্রহণযোগ্য নয়)।'
+          : 'Name must contain only English letters (A-Z, a-z) and spaces (2 to 70 characters).'
       );
       return;
     }
 
-    // Username English-only validation (A-Z, a-z, 0-9, _, ., -)
+    // Username English-only validation (A-Z, a-z, 0-9, _, ., -, min 3, max 30 chars)
     const englishUsernameRegex = /^[a-zA-Z0-9_.-]+$/;
-    if (hasBengaliChars.test(trimmedUsername) || !englishUsernameRegex.test(trimmedUsername)) {
+    if (
+      hasBengaliChars.test(trimmedUsername) ||
+      !englishUsernameRegex.test(trimmedUsername) ||
+      trimmedUsername.length < 3 ||
+      trimmedUsername.length > 30
+    ) {
       showToast(
         lang === 'bn'
-          ? 'ইউজারনেম শুধুমাত্র ইংরেজি অক্ষরে (a-z, 0-9, _, ., -) হতে হবে।'
-          : 'Username must contain English characters only (a-z, 0-9, _, ., -).'
+          ? 'ইউজারনেম ৩ থেকে ৩০ ইংরেজি অক্ষরের (a-z, 0-9, _, ., -) হতে হবে।'
+          : 'Username must be 3 to 30 English characters (a-z, 0-9, _, ., -) only.'
       );
       return;
     }
 
-    if (trimmedUsername.length < 3) {
-      showToast(lang === 'bn' ? 'ইউজারনেম কমপক্ষে ৩ অক্ষরের হতে হবে।' : 'Username must be at least 3 characters.');
+    if (trimmedPassword.length < 6) {
+      showToast(
+        lang === 'bn'
+          ? 'পাসওয়ার্ড কমপক্ষে ৬ অক্ষরের হতে হবে।'
+          : 'Password must be at least 6 characters.'
+      );
       return;
     }
 
     setIsLoading(true);
-    setTimeout(() => {
-      register(
+    try {
+      const ok = await register(
         trimmedEmail,
         trimmedUsername,
         trimmedFullName,
         trimmedPassword
       );
+      if (ok) {
+        setMode('login');
+      }
+    } finally {
       setIsLoading(false);
-    }, 400);
+    }
   };
 
   const handleResetPassword = (e: React.FormEvent) => {

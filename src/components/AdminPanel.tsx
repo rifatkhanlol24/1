@@ -33,8 +33,7 @@ import {
 import { useApp } from '../context/AppContext';
 import { UserRole, User, Post } from '../types';
 import { FirebaseConsole } from './FirebaseConsole';
-import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from 'firebase/auth';
-import { getFirestore, doc, getDoc } from 'firebase/firestore';
+import { getAuth, signOut } from 'firebase/auth';
 import { app } from '../lib/firebase';
 
 export const AdminPanel: React.FC = () => {
@@ -61,11 +60,18 @@ export const AdminPanel: React.FC = () => {
     deletePost,
     setActiveTab,
     setIsAuthModalOpen,
+    isFirebaseAdmin,
     lang,
     showToast,
   } = useApp();
 
-  const [isAdminVerified, setIsAdminVerified] = useState<boolean | null>(null);
+  const auth = getAuth(app);
+  const currentAuthUser = auth.currentUser;
+  const isDirectlyVerified =
+    (currentAuthUser && currentAuthUser.uid === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3') ||
+    (currentUser && currentUser.id === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3' && isFirebaseAdmin);
+
+  const [isAdminVerified, setIsAdminVerified] = useState<boolean>(Boolean(isDirectlyVerified));
   const [activeSubTab, setActiveSubTab] = useState<
     'firebase' | 'users' | 'verification' | 'automation' | 'moderation' | 'broadcast'
   >('firebase');
@@ -88,19 +94,15 @@ export const AdminPanel: React.FC = () => {
   const [editUserIsVerified, setEditUserIsVerified] = useState(false);
 
   useEffect(() => {
-    const auth = getAuth(app);
-
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      // Authoritative Single Admin check: UID must strictly match UI28ofvzB7cjNJvCG0DvYgbCu9J3
-      if (user && user.uid === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3') {
-        setIsAdminVerified(true);
-      } else {
-        setIsAdminVerified(false);
-      }
-    });
-
-    return () => unsubscribe();
-  }, []);
+    if (isDirectlyVerified) {
+      setIsAdminVerified(true);
+    } else {
+      const unsub = auth.onAuthStateChanged((user) => {
+        setIsAdminVerified(Boolean(user && user.uid === 'UI28ofvzB7cjNJvCG0DvYgbCu9J3'));
+      });
+      return () => unsub();
+    }
+  }, [isDirectlyVerified]);
 
   const handleAdminLogout = async () => {
     try {

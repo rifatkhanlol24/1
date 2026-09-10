@@ -12,10 +12,12 @@ export interface User {
   password?: string;
   username: string;
   usernameChangeCount?: number; // Maximum 10 times for regular users
+  name?: string;
   fullName: string;
   fullNameBn?: string;
   fullNameEn?: string;
   avatar: string;
+  profileImage?: string;
   coverImage: string;
   bio: string;
   bioBn?: string;
@@ -24,15 +26,21 @@ export interface User {
   links?: ProfileLink[]; // Up to 10 links
   statusBadge?: string;
   role: UserRole;
+  status?: string;
+  verified?: boolean;
   isVerified: boolean;
   isVip?: boolean;
   badge?: 'VIP' | 'Verified' | 'None';
   isBanned: boolean;
   isBot?: boolean;
   followerCount?: number;
+  followersCount?: number;
+  followingCount?: number;
+  postsCount?: number;
   followers: string[]; // user IDs
   following: string[]; // user IDs
   createdAt: string;
+  lastActive?: string;
 }
 
 export interface VerificationRequest {
@@ -71,6 +79,7 @@ export interface Post {
   isVerified?: boolean;
   content: string;
   imageUrl?: string;
+  image?: string;
   filter?: PhotoFilter;
   tags: string[];
   location?: string;
@@ -80,6 +89,7 @@ export interface Post {
   likesCount?: number;
   savedBy: string[]; // user IDs
   comments: PostComment[];
+  commentsCount?: number;
   sharesCount: number;
   isFlagged?: boolean;
   flagReason?: string;

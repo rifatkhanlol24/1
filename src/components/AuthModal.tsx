@@ -92,7 +92,12 @@ export const AuthModal: React.FC = () => {
         return;
       }
 
-      register(trimmedEmail, trimmedUsername, trimmedFullName, trimmedPassword || undefined);
+      setIsSubmitting(true);
+      try {
+        await register(trimmedEmail, trimmedUsername, trimmedFullName, trimmedPassword || undefined);
+      } finally {
+        setIsSubmitting(false);
+      }
     }
   };
 

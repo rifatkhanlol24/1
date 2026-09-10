@@ -44,7 +44,7 @@ export const FirebaseConsole: React.FC = () => {
 
   const [activeCollection, setActiveCollection] = useState<'users' | 'posts' | 'messages' | 'notifications'>('users');
   const [connectionStatus, setConnectionStatus] = useState<'checking' | 'connected' | 'error'>('checking');
-  const [statusDetails, setStatusDetails] = useState<string>('Verifying Cloud Firestore connection...');
+  const [statusDetails, setStatusDetails] = useState<string>('Verifying Realtime Database connection...');
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [searchFilter, setSearchFilter] = useState<string>('');
   const [copiedConfig, setCopiedConfig] = useState<boolean>(false);
@@ -60,7 +60,7 @@ export const FirebaseConsole: React.FC = () => {
       if (!isMounted) return;
       if (res.success) {
         setConnectionStatus('connected');
-        setStatusDetails('Successfully linked to Google Cloud Firestore (social-media1bd)');
+        setStatusDetails('Successfully linked to Firebase Realtime Database (social-media1bd)');
       } else {
         setConnectionStatus('error');
         setStatusDetails(res.message);
@@ -71,19 +71,19 @@ export const FirebaseConsole: React.FC = () => {
     };
   }, []);
 
-  const handleSyncToFirestore = async () => {
+  const handleSyncToDatabase = async () => {
     setIsSyncing(true);
     try {
       const result = await firebaseService.seedInitialData(users, posts);
       showToast(
         lang === 'bn'
-          ? `ফায়ারস্টোরে সিঙ্ক সম্পন্ন! ${result.usersCount} ইউজার এবং ${result.postsCount} পোস্ট আপলোড হয়েছে।`
-          : `Synced to Firestore! ${result.usersCount} users and ${result.postsCount} posts pushed.`
+          ? `ডাটাবেসে সিঙ্ক সম্পন্ন! ${result.usersCount} ইউজার এবং ${result.postsCount} পোস্ট আপলোড হয়েছে।`
+          : `Synced to Realtime Database! ${result.usersCount} users and ${result.postsCount} posts pushed.`
       );
       setConnectionStatus('connected');
-      setStatusDetails('Synced with live Cloud Firestore collection');
+      setStatusDetails('Synced with live Realtime Database');
     } catch (err) {
-      showToast(lang === 'bn' ? 'সিঙ্ক করতে সমস্যা হয়েছে।' : 'Failed to sync with Firestore.');
+      showToast(lang === 'bn' ? 'সিঙ্ক করতে সমস্যা হয়েছে।' : 'Failed to sync with Realtime Database.');
     } finally {
       setIsSyncing(false);
     }
@@ -137,8 +137,8 @@ export const FirebaseConsole: React.FC = () => {
               </div>
               <p className="text-xs text-neutral-400 mt-0.5">
                 {lang === 'bn'
-                  ? '1 social অ্যাপ্লিকেশনের ক্লাউড ফায়ারস্টোর ও এডমিন ম্যানেজমেন্ট হাব'
-                  : 'Cloud Firestore & Administrative Management Hub for 1 social'}
+                  ? '1 social অ্যাপ্লিকেশনের ফায়ারবেস রিয়েলটাইম ডাটাবেস ও এডমিন হাব'
+                  : 'Realtime Database & Administrative Hub for 1 social'}
               </p>
             </div>
           </div>
@@ -156,22 +156,22 @@ export const FirebaseConsole: React.FC = () => {
             </a>
 
             <a
-              href="https://console.firebase.google.com/project/social-media1bd/firestore"
+              href="https://console.firebase.google.com/project/social-media1bd/database"
               target="_blank"
               rel="noreferrer"
               className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-xs font-semibold text-neutral-200 border border-neutral-700 transition-colors"
             >
               <Database className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Firestore Database</span>
+              <span>Realtime Database</span>
             </a>
 
             <button
-              onClick={handleSyncToFirestore}
+              onClick={handleSyncToDatabase}
               disabled={isSyncing}
               className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-xs font-bold text-white shadow-md shadow-amber-600/20 transition-all disabled:opacity-50"
             >
               <UploadCloud className={`w-3.5 h-3.5 ${isSyncing ? 'animate-bounce' : ''}`} />
-              <span>{isSyncing ? (lang === 'bn' ? 'সিঙ্ক হচ্ছে...' : 'Syncing...') : (lang === 'bn' ? 'ফায়ারস্টোরে পুশ করুন' : 'Push to Firestore')}</span>
+              <span>{isSyncing ? (lang === 'bn' ? 'সিঙ্ক হচ্ছে...' : 'Syncing...') : (lang === 'bn' ? 'ডাটাবেসে পুশ করুন' : 'Push to Database')}</span>
             </button>
           </div>
         </div>
@@ -194,9 +194,9 @@ export const FirebaseConsole: React.FC = () => {
           </div>
 
           <div className="p-3 rounded-2xl bg-neutral-800/80 border border-neutral-700/60">
-            <span className="text-neutral-400 block mb-1">Database ID</span>
+            <span className="text-neutral-400 block mb-1">Database Instance</span>
             <p className="font-mono font-semibold text-emerald-400 truncate">
-              {firebaseConfig.firestoreDatabaseId || '(default)'}
+              social-media1bd-default-rtdb
             </p>
           </div>
 
@@ -264,7 +264,7 @@ export const FirebaseConsole: React.FC = () => {
           <div className="p-4 border-b border-neutral-100 dark:border-neutral-800 flex items-center justify-between">
             <h3 className="font-bold text-xs text-neutral-900 dark:text-neutral-100 flex items-center gap-1.5">
               <Users className="w-4 h-4 text-amber-500" />
-              <span>Cloud Firestore Collection: <code>users</code></span>
+              <span>Realtime Database Node: <code>users</code></span>
             </h3>
             <span className="text-[11px] text-neutral-400">{filteredUsers.length} documents</span>
           </div>
@@ -275,7 +275,7 @@ export const FirebaseConsole: React.FC = () => {
                 <tr>
                   <th className="p-3.5">User Profile</th>
                   <th className="p-3.5">Email Address</th>
-                  <th className="p-3.5">Firestore Role</th>
+                  <th className="p-3.5">User Role</th>
                   <th className="p-3.5">Verified</th>
                   <th className="p-3.5">Status</th>
                   <th className="p-3.5 text-right">Admin Actions</th>
@@ -374,7 +374,7 @@ export const FirebaseConsole: React.FC = () => {
           <div className="p-4 rounded-3xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-sm flex items-center justify-between">
             <h3 className="font-bold text-xs text-neutral-900 dark:text-neutral-100 flex items-center gap-1.5">
               <FileText className="w-4 h-4 text-amber-500" />
-              <span>Cloud Firestore Collection: <code>posts</code></span>
+              <span>Realtime Database Node: <code>posts</code></span>
             </h3>
             <span className="text-[11px] text-neutral-400">{filteredPosts.length} posts total</span>
           </div>
@@ -421,7 +421,7 @@ export const FirebaseConsole: React.FC = () => {
                   )}
                   <button
                     onClick={() => {
-                      if (confirm('Delete this post from Firestore?')) {
+                      if (confirm('Delete this post from Realtime Database?')) {
                         deletePost(p.id);
                       }
                     }}
@@ -442,7 +442,7 @@ export const FirebaseConsole: React.FC = () => {
         <div className="rounded-3xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-5 shadow-sm space-y-3">
           <h3 className="font-bold text-xs text-neutral-900 dark:text-neutral-100 flex items-center gap-1.5">
             <MessageSquare className="w-4 h-4 text-amber-500" />
-            <span>Cloud Firestore Collection: <code>messages</code> ({messages.length} messages)</span>
+            <span>Realtime Database Node: <code>messages</code> ({messages.length} messages)</span>
           </h3>
           <div className="space-y-2">
             {messages.slice(-10).map((m) => (
